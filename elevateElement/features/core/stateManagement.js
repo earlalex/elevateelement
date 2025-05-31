@@ -1,4 +1,6 @@
-// features/stateManagement.js
+// ==========================================
+// elevateElement/features/stateManagement.js
+// ==========================================
 
 export function addStateManagement(BaseElement) {
   return class extends BaseElement {
@@ -10,10 +12,6 @@ export function addStateManagement(BaseElement) {
       this.__useIndexedDB = false; // Will switch dynamically
     }
 
-    /**
-     * Deep merge two objects.
-     * @private
-     */
     #deepMerge(target, source) {
       if (typeof target !== 'object' || typeof source !== 'object' || !target || !source) {
         return source;
@@ -29,10 +27,6 @@ export function addStateManagement(BaseElement) {
       return output;
     }
 
-    /**
-     * Updates the component's state and triggers render + storage save if necessary.
-     * @param {object} newState 
-     */
     async setState(newState) {
       if (typeof newState !== 'object' || newState === null) {
         console.error('setState: newState must be a non-null object.');
@@ -42,9 +36,7 @@ export function addStateManagement(BaseElement) {
       const mergedState = this.#deepMerge(this.state, newState);
       const hasChanged = JSON.stringify(this.state) !== JSON.stringify(mergedState);
 
-      if (!hasChanged) {
-        return; // No change detected
-      }
+      if (!hasChanged) return;
 
       if (typeof this.beforeStateChange === 'function') {
         try {
@@ -61,7 +53,6 @@ export function addStateManagement(BaseElement) {
         this.render();
       }
 
-      // Save updated static parts to storage
       await this.#persistState();
 
       if (typeof this.afterStateChange === 'function') {
@@ -73,10 +64,6 @@ export function addStateManagement(BaseElement) {
       }
     }
 
-    /**
-     * Completely replace state (wipe old state).
-     * @param {object} newState 
-     */
     async replaceState(newState) {
       if (typeof newState !== 'object' || newState === null) {
         console.error('replaceState: newState must be a non-null object.');
@@ -109,15 +96,12 @@ export function addStateManagement(BaseElement) {
       }
     }
 
-    /**
-     * PRIVATE: Persist static parts of state to LocalStorage or IndexedDB.
-     */
     async #persistState() {
       try {
         const serialized = JSON.stringify(this.state);
         const byteLength = new TextEncoder().encode(serialized).length;
 
-        if (byteLength < 2500000 && !this.__useIndexedDB) { // ~2.5MB safe limit
+        if (byteLength < 2500000 && !this.__useIndexedDB) {
           localStorage.setItem(this.__storageKey, serialized);
         } else {
           this.__useIndexedDB = true;
@@ -128,9 +112,6 @@ export function addStateManagement(BaseElement) {
       }
     }
 
-    /**
-     * PRIVATE: Load static state during component initialization.
-     */
     async loadStaticState() {
       try {
         const localData = localStorage.getItem(this.__storageKey);
@@ -149,9 +130,6 @@ export function addStateManagement(BaseElement) {
       }
     }
 
-    /**
-     * PRIVATE: Save state object into IndexedDB.
-     */
     #saveToIndexedDB(key, value) {
       return new Promise((resolve, reject) => {
         const request = indexedDB.open('ElevateElementDB', 1);
@@ -176,9 +154,6 @@ export function addStateManagement(BaseElement) {
       });
     }
 
-    /**
-     * PRIVATE: Load state object from IndexedDB.
-     */
     #loadFromIndexedDB(key) {
       return new Promise((resolve, reject) => {
         const request = indexedDB.open('ElevateElementDB', 1);
@@ -198,102 +173,3 @@ export function addStateManagement(BaseElement) {
     }
   };
 }
-
-// features/serviceWorker.js
-
-export function addServiceWorker(BaseElement) {
-  return class extends BaseElement {
-    constructor() {
-      super();
-      this.serviceWorkerRegistration = null;
-      this.__serviceWorkerMessageHandlers = [];
-    }
-
-    /**
-     * Register a service worker script.
-     * @param {string} scriptURL - Path to the service worker script
-     * @param {object} [options] - Optional registration options (scope, type)
-     */
-    async registerServiceWorker(scriptURL, options = {}) {
-      if (!('serviceWorker' in navigator)) {
-        console.warn('Service workers are not supported in this browser.');
-        return;
-      }
-
-      try {
-        const registration = await navigator.serviceWorker.register(scriptURL, options);
-        this.serviceWorkerRegistration = registration;
-
-        console.log('[ServiceWorker] Registered:', registration);
-
-        // Setup listener for messages
-        navigator.serviceWorker.addEventListener('message', this.#handleServiceWorkerMessage.bind(this));
-      } catch (error) {
-        console.error('[ServiceWorker] Registration failed:', error);
-      }
-    }
-
-    /**
-     * Unregister the currently active service worker.
-     */
-    async unregisterServiceWorker() {
-      if (this.serviceWorkerRegistration) {
-        try {
-          await this.serviceWorkerRegistration.unregister();
-          console.log('[ServiceWorker] Unregistered.');
-          this.serviceWorkerRegistration = null;
-        } catch (error) {
-          console.error('[ServiceWorker] Unregistration failed:', error);
-        }
-      }
-    }
-
-    /**
-     * Send a message to the service worker (active or waiting worker).
-     * @param {any} message - The message payload to send
-     */
-    sendMessageToServiceWorker(message) {
-      if (navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage(message);
-      } else {
-        console.warn('[ServiceWorker] No active controller to send message to.');
-      }
-    }
-
-    /**
-     * Register a handler for incoming messages from the service worker.
-     * @param {function} handler - A callback function that receives the event.data
-     */
-    onServiceWorkerMessage(handler) {
-      if (typeof handler === 'function') {
-        this.__serviceWorkerMessageHandlers.push(handler);
-      }
-    }
-
-    /**
-     * PRIVATE: Internal handler for messages from service workers.
-     */
-    #handleServiceWorkerMessage(event) {
-      this.__serviceWorkerMessageHandlers.forEach(handler => {
-        try {
-          handler.call(this, event.data);
-        } catch (error) {
-          console.error('Error in service worker message handler:', error);
-        }
-      });
-    }
-
-    /**
-     * Cleanup when component is removed
-     */
-    disconnectedCallback() {
-      if (super.disconnectedCallback) {
-        super.disconnectedCallback();
-      }
-
-      navigator.serviceWorker.removeEventListener('message', this.#handleServiceWorkerMessage.bind(this));
-      this.__serviceWorkerMessageHandlers = [];
-    }
-  };
-}
-

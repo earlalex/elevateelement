@@ -1,169 +1,176 @@
-/**
- * ElevateElement Feature: channelMessaging.js
- * Enables managing multiple BroadcastChannels in a component with message handling and optional event emission.
- */
-export default function ChannelMessagingFeature(BaseClass) {
-    return class ChannelMessagingFeature extends BaseClass {
-      constructor(...args) {
-        super(...args);
-        // Internal registry of channels and handlers
-        this._channels = {};          // Map channelName -> BroadcastChannel instance
-        this._channelHandlers = {};   // Map channelName -> { '*': [handlers], 'type': [handlers] }
-  
-        // Config: auto-emit events for incoming messages (disabled by default)
-        const opts = this.constructor.channelMessaging;
-        /** @type {boolean} */
-        this.channelMessagingAutoEmit = !!(opts && opts.autoEmit);
+// elevateElement/features/channelMessaging.js
+export function addChannelMessagingFeature(BaseClass) {
+  return class addChannelMessagingFeature extends BaseClass {
+    constructor(...args) {
+      super(...args);
+
+      this._channels = {}; // Map: channelName -> BroadcastChannel
+      this._channelHandlers = {}; // Map: channelName -> { '*': [], 'type': [] }
+      this._namespace = this.constructor.name; // Default namespace: class name
+
+      const opts = this.constructor.channelMessaging;
+      this.channelMessagingAutoEmit = !!(opts && opts.autoEmit);
+    }
+
+    /**
+     * Open (or join) a BroadcastChannel.
+     */
+    openChannel(name = 'elevate-element-channel') {
+      if (this._channels[name]) return this._channels[name];
+
+      const channel = new BroadcastChannel(name);
+      this._channels[name] = channel;
+      this._channelHandlers[name] = {};
+
+      channel.addEventListener('message', (event) => {
+        this._handleChannelMessage(name, event);
+      });
+
+      return channel;
+    }
+
+    /**
+     * Send a structured message on a channel.
+     */
+    sendChannelMessage(name, payload, customType = 'generic') {
+      const channel = this._channels[name];
+      if (!channel) {
+        console.warn(`Channel "${name}" is not open. Call openChannel("${name}") first.`);
+        return;
       }
-  
-      /**
-       * Open (or join) a BroadcastChannel with the given name.
-       * If already open, returns the existing channel instance.
-       * @param {string} name - The channel name.
-       * @return {BroadcastChannel} The BroadcastChannel instance for the name.
-       */
-      openChannel(name) {
-        // If channel already exists, return it
-        if (this._channels[name]) {
-          return this._channels[name];
-        }
-        // Create new BroadcastChannel and store it
-        const channel = new BroadcastChannel(name);
-        this._channels[name] = channel;
-        this._channelHandlers[name] = {};
-  
-        // Listen for incoming messages on this channel
-        channel.addEventListener('message', (event) => {
-          this._handleChannelMessage(name, event);
-        });
-        return channel;
+
+      const structuredMessage = {
+        type: customType,
+        namespace: this._namespace,
+        payload: payload,
+        timestamp: Date.now()
+      };
+
+      channel.postMessage(structuredMessage);
+    }
+
+    /**
+     * Broadcast partial state to other tabs.
+     */
+    syncState(partialState, channelName = 'elevate-element-channel') {
+      if (!partialState || typeof partialState !== 'object') return;
+
+      this.sendChannelMessage(channelName, partialState, 'sync-state');
+    }
+
+    /**
+     * Hook for receiving incoming synced state.
+     */
+    receiveSyncedState(incomingState) {
+      if (!incomingState || typeof incomingState !== 'object') return;
+      this.setState({ ...incomingState });
+    }
+
+    /**
+     * Listen for incoming channel messages.
+     */
+    onChannelMessage(name, typeOrHandler, handler) {
+      if (!this._channels[name]) {
+        this.openChannel(name);
       }
-  
-      /**
-       * Send a message on a specific channel.
-       * @param {string} name - The channel name to send the message on.
-       * @param {*} data - The data to send (must be serializable via structured clone).
-       */
-      sendChannelMessage(name, data) {
-        const channel = this._channels[name];
-        if (!channel) {
-          console.warn(`Channel "${name}" is not open. Call openChannel("${name}") first.`);
-          return;
-        }
-        channel.postMessage(data);
+
+      let type;
+      let callback;
+      if (typeof typeOrHandler === 'function') {
+        type = '*';
+        callback = typeOrHandler;
+      } else {
+        type = typeOrHandler;
+        callback = handler;
       }
-  
-      /**
-       * Register a message handler for a channel, with optional type filtering.
-       * @param {string} name - The channel name to listen on.
-       * @param {string|Function} typeOrHandler - If a string, treat as message type to filter; if a function, it's the handler for all messages.
-       * @param {Function} [handler] - The handler function (if a type string was provided as second argument).
-       */
-      onChannelMessage(name, typeOrHandler, handler) {
-        // Ensure channel is open
-        if (!this._channels[name]) {
-          this.openChannel(name);
-        }
-        // Determine if a type filter is provided
-        let type;
-        let callback;
-        if (typeof typeOrHandler === 'function') {
-          // Only handler provided, no filtering
-          type = '*';
-          callback = typeOrHandler;
-        } else {
-          // typeOrHandler is a string (message type), and handler is the callback
-          type = typeOrHandler;
-          callback = handler;
-        }
-        if (typeof callback !== 'function') {
-          console.warn('onChannelMessage requires a handler function.');
-          return;
-        }
-        // Initialize handler array for this type if not exist
-        if (!this._channelHandlers[name][type]) {
-          this._channelHandlers[name][type] = [];
-        }
-        // Store the handler
-        this._channelHandlers[name][type].push(callback);
+
+      if (typeof callback !== 'function') {
+        console.warn('onChannelMessage requires a handler function.');
+        return;
       }
-  
-      /**
-       * Internal handler for incoming BroadcastChannel messages.
-       * Dispatches to any registered handlers and triggers auto-emit events if enabled.
-       * @param {string} name - The channel name on which the message was received.
-       * @param {MessageEvent} event - The message event from BroadcastChannel.
-       */
-      _handleChannelMessage(name, event) {
-        const data = event.data;
-        // Determine message type if available (expecting e.g. {type: "...", ...})
-        const messageType = (data && typeof data === 'object' && 'type' in data) ? data.type : undefined;
-        const handlersMap = this._channelHandlers[name] || {};
-  
-        // Invoke general handlers (no type filter)
-        if (handlersMap['*']) {
-          for (const handler of handlersMap['*']) {
-            try {
-              handler.call(this, data, event);
-            } catch (e) {
-              console.error(`Error in BroadcastChannel handler (channel "${name}"):`, e);
-            }
-          }
-        }
-        // Invoke handlers for specific messageType
-        if (messageType && handlersMap[messageType]) {
-          for (const handler of handlersMap[messageType]) {
-            try {
-              handler.call(this, data, event);
-            } catch (e) {
-              console.error(`Error in BroadcastChannel handler for type "${messageType}" (channel "${name}"):`, e);
-            }
-          }
-        }
-        // Auto-emit a component event if enabled and messageType is present
-        if (this.channelMessagingAutoEmit && messageType && typeof this.emit === 'function') {
+
+      if (!this._channelHandlers[name][type]) {
+        this._channelHandlers[name][type] = [];
+      }
+      this._channelHandlers[name][type].push(callback);
+    }
+
+    /**
+     * Handle an incoming BroadcastChannel message.
+     */
+    _handleChannelMessage(name, event) {
+      const data = event.data;
+      const { type, namespace, payload } = data || {};
+
+      if (!namespace || namespace !== this._namespace) {
+        // Ignore messages for other component types
+        return;
+      }
+
+      const handlersMap = this._channelHandlers[name] || {};
+
+      // Generic handlers
+      if (handlersMap['*']) {
+        for (const handler of handlersMap['*']) {
           try {
-            this.emit(messageType, data);
+            handler.call(this, data, event);
           } catch (e) {
-            console.error(`Error emitting event "${messageType}" from channel message:`, e);
+            console.error(`Error in channel handler (channel "${name}")`, e);
           }
         }
       }
-  
-      /**
-       * Close a specific channel and remove all its handlers.
-       * @param {string} name - The channel name to close.
-       */
-      closeChannel(name) {
-        const channel = this._channels[name];
-        if (!channel) return;
-        // Remove event listeners and close the channel
-        // (BroadcastChannel doesn't require manual removal of listeners before closing, 
-        //  but we clear our references for safety.)
-        channel.close();
-        delete this._channels[name];
-        delete this._channelHandlers[name];
-      }
-  
-      /**
-       * Close all open channels and remove their handlers.
-       * This is automatically called when the component disconnects.
-       */
-      closeAllChannels() {
-        for (const name of Object.keys(this._channels)) {
-          this.closeChannel(name);
+
+      // Type-specific handlers
+      if (type && handlersMap[type]) {
+        for (const handler of handlersMap[type]) {
+          try {
+            handler.call(this, data, event);
+          } catch (e) {
+            console.error(`Error in channel handler for type "${type}"`, e);
+          }
         }
       }
-  
-      /**
-       * Lifecycle callback (if ElevateElement components use connected/disconnected).
-       * Ensures channels are cleaned up when component is removed.
-       */
-      disconnectedCallback() {
-        if (super.disconnectedCallback) {
-          super.disconnectedCallback();
+
+      // Auto emit as event if enabled
+      if (this.channelMessagingAutoEmit && type && typeof this.emit === 'function') {
+        try {
+          this.emit(type, payload);
+        } catch (e) {
+          console.error(`Error emitting event "${type}" from channel message:`, e);
         }
-        this.closeAllChannels();
       }
-    };
-  }
+
+      // Built-in sync handler
+      if (type === 'sync-state') {
+        this.receiveSyncedState(payload);
+      }
+    }
+
+    /**
+     * Close a specific channel manually.
+     */
+    closeChannel(name) {
+      const channel = this._channels[name];
+      if (!channel) return;
+      channel.close();
+      delete this._channels[name];
+      delete this._channelHandlers[name];
+    }
+
+    /**
+     * Close all open channels on disconnect.
+     */
+    closeAllChannels() {
+      for (const name of Object.keys(this._channels)) {
+        this.closeChannel(name);
+      }
+    }
+
+    disconnectedCallback() {
+      if (super.disconnectedCallback) {
+        super.disconnectedCallback();
+      }
+      this.closeAllChannels();
+    }
+  };
+}

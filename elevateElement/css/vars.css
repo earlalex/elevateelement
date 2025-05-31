@@ -1,55 +1,160 @@
+/* ElevateElement CSS Variables - Modern Minimalist Design */
 :root {
-    /* Boostrap Vars */
-    --bs-blue: #0d6efd;
-    --bs-indigo: #6610f2;
-    --bs-purple: #6f42c1;
-    --bs-pink: #d63384;
-    --bs-red: #dc3545;
-    --bs-orange: #fd7e14;
-    --bs-yellow: #ffc107;
-    --bs-green: #198754;
-    --bs-teal: #20c997;
-    --bs-cyan: #0dcaf0;
-    --bs-white: #fff;
-    --bs-gray: #6c757d;
-    --bs-gray-dark: #343a40;
-    --bs-primary: #0d6efd;
-    --bs-secondary: #6c757d;
-    --bs-success: #198754;
-    --bs-info: #0dcaf0;
-    --bs-warning: #ffc107;
-    --bs-danger: #dc3545;
-    --bs-light: #f8f9fa;
-    --bs-dark: #212529;
-    --bs-font-sans-serif: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-    --bs-font-monospace: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    --bs-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0));
-    /* Cusotom Vars */
-    /* Typography */
-    --font-text-size: 16px;
-    --font-smallest: 0.8rem;
-    --font-smaller: 0.875rem;
-    --font-small: 0.933rem;
-    --font-ui-smaller: 12px;
-    --font-ui-small: 13px;
-    --font-ui-medium: 15px;
-    --font-ui-larger: 20px;
-    /* Colors */
-    --color-red: #e93147;
-    --color-orange: #ec7500;
-    --color-yellow: #e0ac00;
-    --color-green: #08b94e;
-    --color-cyan: #00bfbc;
-    --color-blue: #086ddd;
-    --color-purple: #7852ee;
-    --color-pink: #d53984;
-    --color-red-rgba: rgba(233, 49, 71, 0.5);
-    --color-orange-rgba: rgba(236, 117, 0, 0.5);
-    --color-yellow-rgba: rgba(224, 172, 0, 0.5);
-    --color-green-rgba: rgba(8, 185, 78, 0.5);
-    --color-cyan-rgba: rgba(0, 191, 188, 0.5);
-    --color-blue-rgba: rgba(8, 109, 221, 0.5);
-    --color-purple-rgba:  rgba(120, 82, 238, 0.5);
-    --color-pink-rgba:  rgba(213, 57, 132, 0.5);
+  /* === Color System === */
+  /* Primary - More refined, less saturated */
+  --color-primary: #0066cc;
+  --color-primary-light: #3a90e5;
+  --color-primary-dark: #004c99;
+  --color-on-primary: #ffffff;
+  
+  /* Secondary */
+  --color-secondary: #262626;
+  --color-secondary-light: #404040;
+  --color-secondary-dark: #111111;
+  --color-on-secondary: #ffffff;
 
+  /* Surface & Background - Clean, minimal */
+  --color-surface: #ffffff;
+  --color-surface-variant: #f5f5f7;
+  --color-background: #fbfbfd;
+  --color-on-surface: #1d1d1f;
+  --color-on-surface-medium: #515154;
+  --color-on-surface-high: #000000;
+  --color-on-background: #1d1d1f;
+  
+  /* Error & States */
+  --color-error: #ff3b30;
+  --color-error-light: #ff6b6b;
+  --color-on-error: #ffffff;
+  --color-success: #30d158;
+  --color-warning: #ff9500;
+  --color-info: #0a84ff;
+  
+  /* Neutral & Borders - Subtle */
+  --color-border: #e6e6e6;
+  --color-divider: #d2d2d7;
+  --color-disabled: #8e8e93;
+  --color-disabled-background: #f2f2f2;
+  
+  /* Code Highlighting */
+  --color-code-background: #1a1a1a;
+  --color-code-text: #f0f0f0;
+  
+  /* === Typography === */
+  /* Font Families - Clean, modern Sans-Serif Google Fonts */
+  --font-sans: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-secondary: 'Work Sans', 'Outfit', 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', SFMono-Regular, Consolas, monospace;
+  --font-display: 'Outfit', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  /* Font Sizes - More refined scale */
+  --font-xs: 0.75rem;   /* 12px */
+  --font-sm: 0.875rem;  /* 14px */
+  --font-base: 1rem;    /* 16px */
+  --font-md: 1.125rem;  /* 18px */
+  --font-lg: 1.25rem;   /* 20px */
+  --font-xl: 1.5rem;    /* 24px */
+  --font-2xl: 2rem;     /* 32px */
+  --font-3xl: 2.5rem;   /* 40px */
+  --font-4xl: 3rem;     /* 48px */
+  
+  /* Font Weights - Light weights for modern feel */
+  --weight-thin: 100;
+  --weight-extra-light: 200;
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semi-bold: 600;
+  --weight-bold: 700;
+  --weight-extra-bold: 800;
+  --weight-black: 900;
+  
+  /* Line Heights - More generous for better readability */
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.6;
+  --line-height-relaxed: 1.8;
+  --line-height-code: 1.6;
+  
+  /* Letter Spacing */
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.02em;
+  --letter-spacing-wider: 0.05em;
+  
+  /* === Spacing === */
+  /* More generous whitespace */
+  --space-xxs: 0.25rem;  /* 4px */
+  --space-xs: 0.5rem;    /* 8px */
+  --space-sm: 0.875rem;  /* 14px */
+  --space-md: 1.25rem;   /* 20px */
+  --space-lg: 2rem;      /* 32px */
+  --space-xl: 3rem;      /* 48px */
+  --space-2xl: 4rem;     /* 64px */
+  --space-3xl: 6rem;     /* 96px */
+  
+  /* === Borders & Radius === */
+  /* More subtle, modern radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+  
+  /* Border Widths */
+  --border-xs: 1px;
+  --border-sm: 2px;
+  --border-md: 3px;
+  --border-lg: 4px;
+  
+  /* === Elevation (Shadows) === */
+  /* More subtle, modern shadows */
+  --elevation-0: none;
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.03), 0 1px 6px rgba(0, 0, 0, 0.05);
+  --elevation-2: 0 3px 8px rgba(0, 0, 0, 0.08);
+  --elevation-3: 0 6px 16px rgba(0, 0, 0, 0.1);
+  --elevation-4: 0 12px 24px rgba(0, 0, 0, 0.12);
+  --elevation-5: 0 20px 32px rgba(0, 0, 0, 0.15);
+  
+  /* === Transitions === */
+  --duration-fast: 150ms;
+  --duration-short: 240ms;
+  --duration-medium: 300ms;
+  --duration-long: 450ms;
+  
+  /* Easing Curves - Refined */
+  --easing-standard: cubic-bezier(0.42, 0.0, 0.58, 1.0);
+  --easing-accelerate: cubic-bezier(0.3, 0.0, 0.8, 0.15);
+  --easing-decelerate: cubic-bezier(0.2, 0.85, 0.4, 1.0);
+  
+  /* === Z-index Layers === */
+  --z-negative: -1;
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 1000; 
+  --z-sticky: 1200;
+  --z-fixed: 1300;
+  --z-modal: 1400;
+  --z-popover: 1500;
+  --z-tooltip: 1600;
+  --z-toast: 1700;
+  --z-overlay: 1800;
+  --z-max: 9999;
+  
+  /* === Layout === */
+  --container-sm: 640px;
+  --container-md: 768px;
+  --container-lg: 1024px;
+  --container-xl: 1280px;
+  
+  /* === Interactive States === */
+  --focus-ring-color: rgba(0, 102, 204, 0.35);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  
+  /* === Grid === */
+  --grid-gap-xs: 0.5rem;
+  --grid-gap-sm: 1rem;
+  --grid-gap-md: 1.5rem;
+  --grid-gap-lg: 2rem;
+  --grid-gap-xl: 3rem;
 }

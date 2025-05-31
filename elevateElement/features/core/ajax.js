@@ -1,13 +1,13 @@
-// features/ajax.js
+// elevateElement/features/ajax.js
 
 export function addAjax(BaseElement) {
   return class extends BaseElement {
     /**
-     * Perform an AJAX request using Fetch API.
+     * Perform a flexible AJAX request using Fetch API.
      * Supports Promise chaining or async/await.
-     * 
+     *
      * @param {string} url - The URL to request.
-     * @param {object} [options={}] - Options for the request (method, headers, body, etc.).
+     * @param {object} [options={}] - Options for the request (method, headers, body, then, catchError, asText).
      * @returns {Promise<object>} Resolves with JSON or text depending on response.
      */
     ajax(url, options = {}) {
@@ -20,10 +20,7 @@ export function addAjax(BaseElement) {
         asText = false
       } = options;
 
-      const fetchOptions = {
-        method,
-        headers,
-      };
+      const fetchOptions = { method, headers };
 
       if (body) {
         fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
@@ -38,11 +35,9 @@ export function addAjax(BaseElement) {
           return asText ? response.text() : response.json();
         });
 
-      // If developer provides .then and/or .catch handlers in options, attach them
       if (typeof then === 'function') {
         promise.then(then);
       }
-
       if (typeof catchError === 'function') {
         promise.catch(catchError);
       }
@@ -51,11 +46,10 @@ export function addAjax(BaseElement) {
     }
 
     /**
-     * Async/Await version of ajax for simpler use in async functions.
-     * 
-     * @param {string} url - The URL to request.
-     * @param {object} [options={}] - Same options as ajax().
-     * @returns {object} Response JSON or text.
+     * Async/Await version of AJAX for simpler use inside async functions.
+     * @param {string} url
+     * @param {object} [options={}]
+     * @returns {Promise<object|string>}
      */
     async ajaxAsync(url, options = {}) {
       try {
@@ -66,10 +60,7 @@ export function addAjax(BaseElement) {
           asText = false
         } = options;
 
-        const fetchOptions = {
-          method,
-          headers,
-        };
+        const fetchOptions = { method, headers };
 
         if (body) {
           fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
@@ -87,6 +78,62 @@ export function addAjax(BaseElement) {
         console.error('AJAX async error:', error);
         throw error;
       }
+    }
+
+    /**
+     * GET JSON convenience method.
+     * @param {string} url
+     * @param {object} [options={}]
+     * @returns {Promise<object>}
+     */
+    async getJSON(url, options = {}) {
+      return this.ajaxAsync(url, {
+        ...options,
+        method: 'GET',
+      });
+    }
+
+    /**
+     * POST JSON convenience method.
+     * @param {string} url
+     * @param {object} body
+     * @param {object} [options={}]
+     * @returns {Promise<object>}
+     */
+    async postJSON(url, body = {}, options = {}) {
+      return this.ajaxAsync(url, {
+        ...options,
+        method: 'POST',
+        body,
+      });
+    }
+
+    /**
+     * PUT JSON convenience method.
+     * @param {string} url
+     * @param {object} body
+     * @param {object} [options={}]
+     * @returns {Promise<object>}
+     */
+    async putJSON(url, body = {}, options = {}) {
+      return this.ajaxAsync(url, {
+        ...options,
+        method: 'PUT',
+        body,
+      });
+    }
+
+    /**
+     * DELETE JSON convenience method.
+     * @param {string} url
+     * @param {object} [options={}]
+     * @returns {Promise<object>}
+     */
+    async deleteJSON(url, options = {}) {
+      return this.ajaxAsync(url, {
+        ...options,
+        method: 'DELETE',
+      });
     }
   };
 }

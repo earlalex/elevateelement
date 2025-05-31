@@ -1,12 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elevate Element</title>
-    <link rel="stylesheet" href="/elevateElement/css/theme.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="description" content="Welcome to ElevateElement — a modern modular web framework.">
+  <title>ElevateElement JS</title>
+  
+  <!-- Google Fonts - Sans Serif Only -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&family=Work+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Framework Styles - Load theme.css which imports all required styles -->
+  <link rel="stylesheet" href="/elevateElement/css/theme.css">
 </head>
+
 <body data-elevateElement="app">
-    <script type="module" src="/elevateElement/js/index.js" preload async></script>
+  <!-- Menu state management script -->
+  <script type="module">
+    import { initializeMenuState, handleNavigation } from '/elevateElement/features/core/menuState.js';
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', initializeMenuState);
+    
+    // Make handleNavigation globally available
+    window.handleNavigation = handleNavigation;
+  </script>
+
+  <!-- No-JS Fallback -->
+  <noscript>
+    <div class="nojs-navigation">
+      <h2>You need JavaScript enabled to use ElevateElement features</h2>
+      <p>Without JavaScript, you can still access these pages:</p>
+      <ul>
+        <li><a href="/about">About</a></li>
+        <li><a href="/contact">Contact</a></li>
+        <li><a href="/">Home</a></li>
+        <li><a href="/config">Config</a></li>
+        <li><a href="/tests">Tests</a></li>
+      </ul>
+    </div>
+  </noscript>
+
+  <elevate-element>
+    <header data-elevateElement="top">
+      <div data-elevateElement="logo" name="Company-Logo">
+        <img data-elevateElement="logo-img"/>
+        <h1 data-elevateElement="logo-site-title"></h1>
+      </div>
+      <nav data-elevateElement="navigation" role="nav">
+        <!-- Navigation container with proper structure -->
+      </nav>
+    </header>
+
+    <main id="app" data-elevateElement="view" role="main">
+      <!-- Default content that will be shown if views fail to load -->
+      <div class="fallback-content">
+        <h2>Welcome to ElevateElement</h2>
+        <p>If you're seeing this message, the view content may still be loading...</p>
+      </div>
+    </main>
+
+    <footer data-elevateElement="base">
+      <p data-elevateElement="copyright"></p>
+    </footer>
+  </elevate-element>
+
+  <!-- Core Script -->
+  <script src="/elevateElement/elevateElement.js" type="module"></script>
+  
+  <!-- Global Menu Controller -->
+  <script type="module">
+    // This script assumes `window.menuState.close()` is robustly implemented
+    // in '/elevateElement/features/core/menuState.js'
+    // and that menuState.js handles its own initialization (e.g., closing menu on load if needed).
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const attemptCloseMenu = (actionSource) => {
+        if (window.menuState && typeof window.menuState.close === 'function') {
+          console.log(`Debug: ${actionSource} - Attempting to close menu via menuState.close().`);
+          window.menuState.close();
+        } else {
+          console.warn(`Debug: ${actionSource} - window.menuState.close() not available.`);
+        }
+      };
+
+      // Close menu on link clicks (delegated)
+      document.body.addEventListener('click', (event) => {
+        // Check if the click is on an anchor tag or an element with a data-path attribute,
+        // and ensure it's likely part of a navigation action.
+        const targetLink = event.target.closest('a[href], [data-path]');
+        if (targetLink) {
+          // You might want to add further checks here if necessary, e.g.,
+          // if (!targetLink.closest('.some-element-that-should-not-close-menu'))
+          attemptCloseMenu('Link click');
+        }
+      });
+
+      // Close menu on browser navigation
+      window.addEventListener('popstate', () => attemptCloseMenu('popstate'));
+      window.addEventListener('hashchange', () => attemptCloseMenu('hashchange'));
+
+      // Initial close on load can also be handled here if not by menuState.js itself
+      // attemptCloseMenu('DOMContentLoaded initial'); 
+
+      console.log('Debug: Centralized menu closing logic initialized (relies on window.menuState).');
+    });
+  </script>
 </body>
 </html>
+<mcfile name="index.html" path="c:\Users\earla\Documents\code\elevateelement\index.html"></mcfile>

@@ -1,11 +1,17 @@
 export const elevateElementConfig = {
+    devMode: true, // <-- Turn auditing on/off easily
+    // --- Framework Configuration ---
+    framework: {
+        useShadowDOM: false, // Set to false to disable Shadow DOM by default
+        shadowDOMMode: 'open', // 'open' or 'closed' when Shadow DOM is enabled
+    },
     // --- Project Overview ---
     projectName: '', // Optional: A name for the overall project (e.g., "Client X Digital Overhaul")
   
     // --- Basic Business Information (Shared) ---
     businessInfo: {
-      name: '', // Official business name
-      dba: '', // Doing Business As (if applicable)
+      name: 'Test Company', // Official business name
+      dba: 'DBA Test', // Doing Business As (if applicable)
       address: {
         street: '',
         city: '',
@@ -13,8 +19,8 @@ export const elevateElementConfig = {
         zip: '',
         country: 'USA', // Default or specify
       },
-      phone: '', // Primary contact phone number
-      email: '', // Primary contact email address
+      phone: '000-000-00000', // Primary contact phone number
+      email: 'test@email.com', // Primary contact email address
       hours: '', // Business hours (e.g., "M-F 9am-5pm MST")
       purposeStatement: '',
       missionStatement: '',
@@ -204,12 +210,3 @@ export const elevateElementConfig = {
       }
     },
   };
-  
-  // Example Usage:
-  // clientProjectInfo.mobileApp.platforms = ['iOS', 'Android'];
-  // clientProjectInfo.mobileApp.userAccounts.required = true;
-  // clientProjectInfo.mobileApp.userAccounts.sharedWithWeb = true;
-  // console.log(clientProjectInfo);
-
- const elEl = new ElevateElement(document.createElement('div'));
- console.log(elEl);

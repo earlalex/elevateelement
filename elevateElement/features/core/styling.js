@@ -1,4 +1,5 @@
 // features/styling.js
+import { elevateElementConfig } from '../../config/config.js';
 
 export function addStyling(BaseElement) {
   return class extends BaseElement {
@@ -8,12 +9,18 @@ export function addStyling(BaseElement) {
     }
 
     /**
-     * Injects styles into the component's shadow DOM.
+     * Injects styles into the component's DOM container (shadow DOM or light DOM).
      */
     applyStyles() {
-      if (!this.shadowRoot) return;
+      const useShadowDOM = elevateElementConfig.framework?.useShadowDOM !== false;
+      
+      // Determine where to inject styles - shadowRoot or light DOM
+      const root = useShadowDOM ? this.shadowRoot : this;
+      
+      // Don't continue if we have nowhere to inject
+      if (!root) return;
 
-      const existingStyleTag = this.shadowRoot.querySelector('style[data-elevate-style]');
+      const existingStyleTag = root.querySelector('style[data-elevate-style]');
       if (existingStyleTag) {
         existingStyleTag.remove(); // Remove old style if exists
       }
@@ -32,9 +39,45 @@ export function addStyling(BaseElement) {
       } else if (typeof this.styles === 'string') {
         cssText = this.styles;
       }
+      
+      // If this is Light DOM, scope the styles by adding element selector
+      if (!useShadowDOM) {
+        // Convert the CSS to be scoped to this element
+        cssText = this.#scopeCSS(cssText);
+      }
 
       styleTag.textContent = cssText;
-      this.shadowRoot.appendChild(styleTag);
+      root.appendChild(styleTag);
+    }
+    
+    /**
+     * Scopes CSS to the current element when not using Shadow DOM
+     * @private
+     */
+    #scopeCSS(cssText) {
+      if (!cssText) return '';
+      
+      try {
+        // Get element tag name for scoping
+        const tag = this.tagName.toLowerCase();
+        
+        // Simple CSS parser to scope all selectors
+        return cssText.replace(/([^\r\n,{}]+)(,(?=[^}]*{)|\s*{)/g, (match, selector, delimiter) => {
+          // Skip already scoped selectors and keyframes
+          if (selector.includes('@keyframes') || 
+              selector.startsWith('@media') || 
+              selector.includes(tag)) {
+            return match;
+          }
+          
+          // Scope the selector with the element tag
+          const scopedSelector = `${tag} ${selector}`;
+          return `${scopedSelector}${delimiter}`;
+        });
+      } catch (error) {
+        console.error('Error scoping CSS:', error);
+        return cssText; // Return original on error
+      }
     }
 
     /**

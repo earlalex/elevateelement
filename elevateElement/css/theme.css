@@ -1,4 +1,6 @@
+/* Load All Core Styles */
 @import url('./reset.css');
 @import url('./vars.css');
 @import url('./styles.css');
-
+@import url('./layouts.css');
+@import url('./navigation.css');

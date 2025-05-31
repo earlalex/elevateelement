@@ -1,14 +1,22 @@
 // features/templating.js
+import { elevateElementConfig } from '../../config/config.js';
 
 export function addTemplating(BaseElement) {
   return class extends BaseElement {
     constructor() {
       super();
-      this.attachShadow({ mode: 'open' });
+      
+      // Only create shadow DOM if enabled in config
+      const useShadowDOM = elevateElementConfig.framework?.useShadowDOM !== false;
+      const shadowDOMMode = elevateElementConfig.framework?.shadowDOMMode || 'open';
+      
+      if (useShadowDOM) {
+        this.attachShadow({ mode: shadowDOMMode });
+      }
     }
 
     template() {
-      return `<div>Hello, ElevateElement!</div>`;
+      return ''; // Default empty template
     }
 
     render() {
@@ -33,140 +41,63 @@ export function addTemplating(BaseElement) {
       }
     }
 
-    #processTemplate(templateString) {
-      return templateString.replace(/\$\{this\.state\.([^\}]+)\}/g, (_, key) => {
-        const value = this.state?.[key];
-        return typeof value !== 'undefined' ? value : '';
+    /**
+     * Process template string and evaluate expressions
+     * @private
+     */
+    #processTemplate(template) {
+      if (!template) return '';
+
+      // Replace {{expressions}} with evaluated results
+      return template.replace(/\{\{([^{}]+)\}\}/g, (match, expr) => {
+        try {
+          // Use Function to create a scope with 'this' context
+          const evaluator = new Function('self', `with(self) { return ${expr}; }`);
+          const result = evaluator(this);
+          return result === undefined ? '' : result;
+        } catch (error) {
+          console.error(`Error evaluating template expression ${match}:`, error);
+          return '';
+        }
       });
     }
 
+    /**
+     * Process directives in the DOM
+     * @private
+     */
     #processDirectives(root) {
-      this.#processForDirectives(root);
-      this.#processIfDirectives(root);
+      // example: process conditionals with data-if, loops with data-for, etc.
+      // will be expanded in future versions
     }
-
-    #processIfDirectives(root) {
-      const eIfElements = root.querySelectorAll('[e-if]');
-      eIfElements.forEach(el => {
-        const condition = el.getAttribute('e-if');
-        let shouldShow = false;
-        try {
-          shouldShow = Function(`return (${condition})`).call(this);
-        } catch (error) {
-          console.error('Error evaluating e-if condition:', condition, error);
-        }
-        if (!shouldShow) {
-          el.remove();
-        }
-      });
-    }
-
-    #processForDirectives(root) {
-      const eForElements = root.querySelectorAll('[e-for]');
-      eForElements.forEach(el => {
-        const expression = el.getAttribute('e-for');
-
-        // Match either (item, index) in array or item in array
-        const match = expression.match(/^\(?\s*(\w+)(?:\s*,\s*(\w+))?\s*\)?\s+in\s+(.+)$/);
-
-        if (!match) {
-          console.error('Invalid e-for expression:', expression);
-          return;
-        }
-
-        const [, itemName, indexName, arrayExpression] = match;
-
-        let items = [];
-        try {
-          items = Function(`return (${arrayExpression})`).call(this);
-        } catch (error) {
-          console.error('Error evaluating e-for array:', arrayExpression, error);
-        }
-
-        if (!Array.isArray(items)) {
-          console.error('e-for target must be an array:', arrayExpression);
-          return;
-        }
-
-        const parent = el.parentNode;
-        items.forEach((item, index) => {
-          const clone = el.cloneNode(true);
-          clone.removeAttribute('e-for');
-
-          // Replace item and index placeholders
-          clone.innerHTML = clone.innerHTML
-            .replace(new RegExp(`\\$\\{${itemName}\\}`, 'g'), item)
-            .replace(new RegExp(`\\$\\{${indexName}\\}`, 'g'), index);
-
-          parent.insertBefore(clone, el);
-        });
-
-        el.remove();
-      });
-    }
-
-    #bindEvents(root) {
-      const elements = root.querySelectorAll('*');
-      elements.forEach(el => {
-        [...el.attributes].forEach(attr => {
-          if (attr.name.startsWith('@')) {
-            const eventName = attr.name.slice(1);
-            const handlerExpression = attr.value;
-
-            const hasArgs = handlerExpression.includes('(');
-
-            if (!hasArgs) {
-              const handlerName = handlerExpression.trim();
-              if (typeof this[handlerName] === 'function') {
-                el.addEventListener(eventName, this[handlerName].bind(this));
-              } else {
-                console.error(`Handler "${handlerName}" is not a function on`, this);
-              }
-            } else {
-              const methodMatch = handlerExpression.match(/^(\w+)\((.*)\)$/);
-              if (!methodMatch) {
-                console.error('Invalid event handler expression:', handlerExpression);
-                return;
-              }
-
-              const [, methodName, argsString] = methodMatch;
-
-              if (typeof this[methodName] !== 'function') {
-                console.error(`Handler "${methodName}" is not a function on`, this);
-                return;
-              }
-
-              el.addEventListener(eventName, (event) => {
-                const parsedArgs = argsString.split(',').map(arg => {
-                  arg = arg.trim();
-                  if ((arg.startsWith(`'`) && arg.endsWith(`'`)) || (arg.startsWith(`"`) && arg.endsWith(`"`))) {
-                    return arg.slice(1, -1);
-                  } else if (!isNaN(Number(arg))) {
-                    return Number(arg);
-                  } else if (arg === 'event') {
-                    return event;
-                  } else {
-                    try {
-                      return Function(`return (${arg})`).call(this);
-                    } catch {
-                      return undefined;
-                    }
-                  }
-                });
-
-                this[methodName](...parsedArgs);
-              });
-            }
-          }
-        });
-      });
-    }
-
+    
+    /**
+     * Apply z-index to elements with data-z attribute
+     * @private
+     */
     #applyZIndex(root) {
-      if (typeof this.zIndex !== 'undefined' && root.host) {
-        root.host.style.zIndex = String(this.zIndex);
-        root.host.style.position = 'relative';
-      }
+      root.querySelectorAll('[data-z]').forEach(elem => {
+        const z = parseInt(elem.getAttribute('data-z'), 10);
+        if (!isNaN(z)) {
+          elem.style.zIndex = z;
+        }
+      });
+    }
+    
+    /**
+     * Bind events from markup
+     * @private
+     */
+    #bindEvents(root) {
+      root.querySelectorAll('[data-event]').forEach(elem => {
+        const eventData = elem.getAttribute('data-event').split(':');
+        if (eventData.length === 2) {
+          const [eventName, methodName] = eventData;
+          if (this[methodName] && typeof this[methodName] === 'function') {
+            elem.addEventListener(eventName, (e) => this[methodName](e));
+          }
+        }
+      });
     }
   };
 }
