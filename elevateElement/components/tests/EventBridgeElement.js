@@ -71,6 +71,58 @@ export function EventBridgeElementBuilder(ElevateElement) {
         composed: true
       });
       window.dispatchEvent(nativeEvent);
+      // No updateUI() here, runTest will call it after assertions if needed
+    }
+
+    async runTest() {
+      console.log('[EventBridgeElement] Starting test...');
+      let allTestsPassed = true;
+      let messages = [];
+
+      this.sendEvent(); // This will increment eventCount and set messages via listeners
+
+      const currentEventCount = this.state.eventCount;
+      const expectedMessage = `Hello from Bridge Event! (${currentEventCount})`;
+
+      // Wait for event propagation and setState calls within listeners
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Assertion for internalMessage
+      if (this.state.internalMessage === expectedMessage) {
+        messages.push('Internal message assertion passed.');
+        console.log('[EventBridgeElement] Assertion Passed: Internal message is correct.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: Internal message is "${this.state.internalMessage}", expected "${expectedMessage}".`);
+        console.error('[EventBridgeElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      // Assertion for globalMessage
+      if (this.state.globalMessage === expectedMessage) {
+        messages.push('Global message assertion passed.');
+        console.log('[EventBridgeElement] Assertion Passed: Global message is correct.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: Global message is "${this.state.globalMessage}", expected "${expectedMessage}".`);
+        console.error('[EventBridgeElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      // Assertion for eventCount
+      if (this.state.eventCount === currentEventCount && currentEventCount > 0) {
+        messages.push(`Event count assertion passed (count: ${currentEventCount}).`);
+        console.log('[EventBridgeElement] Assertion Passed: Event count is correct.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: Event count is ${this.state.eventCount}, expected ${currentEventCount} (and > 0).`);
+        console.error('[EventBridgeElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      this.updateUI(); // Update UI with final state after assertions
+
+      return {
+        success: allTestsPassed,
+        message: messages.join(' ')
+      };
     }
 
     template() {
@@ -204,8 +256,7 @@ export function EventBridgeElementBuilder(ElevateElement) {
   // Define the element if it doesn't exist
   if (!customElements.get('event-bridge-element')) {
     customElements.define('event-bridge-element', EventBridgeElement);
-    console.log('[EventBridgeElement] Custom element defined');
+    console.log('[EventBridgeElement] Custom element defined by EventBridgeElementBuilder.');
   }
-  
   return EventBridgeElement;
 }

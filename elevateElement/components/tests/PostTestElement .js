@@ -57,11 +57,61 @@ export function PostTestElementBuilder(ElevateElementClass) {
   
           const data = await response.json();
           console.log('[PostTestElement] POST response:', data);
-          this.setState({ response: JSON.stringify(data, null, 2), loading: false });
+          // Store raw data object for easier assertion, and stringify for display
+          this.rawResponse = data; // Store for assertion
+          this.setState({ response: JSON.stringify(data, null, 2), loading: false, error: '' });
         } catch (err) {
           console.error('[PostTestElement] POST error:', err);
-          this.setState({ error: err.message, loading: false });
+          this.rawResponse = null; // Clear previous response on error
+          this.setState({ error: err.message, loading: false, response: null });
         }
+      }
+
+      async runTest() {
+        console.log('[PostTestElement] Starting test...');
+        await this.sendPost(); // Call sendPost and wait for it to complete
+
+        let testResult = { success: false, message: '' };
+
+        if (this.state.loading) {
+          testResult.message = 'Assertion failed: loading is still true after sendPost.';
+          console.error('[PostTestElement] Assertion Failed:', testResult.message);
+          // Update UI to reflect this unexpected state if necessary
+          this.update ? this.update() : this.requestUpdate ? this.requestUpdate() : null;
+          return testResult;
+        }
+
+        if (this.state.error) {
+          // This path is for unexpected errors during the post request itself.
+          // A specific test for error *handling* would be different.
+          testResult.message = `Assertion failed: Post operation resulted in an error: ${this.state.error}`;
+          console.error('[PostTestElement] Assertion Failed:', testResult.message);
+        } else if (this.rawResponse) {
+          const responseData = this.rawResponse; // Use the stored raw object
+
+          if (responseData.title === 'foo' && responseData.hasOwnProperty('id')) {
+            if (!this.state.error && !this.state.loading) {
+              testResult.success = true;
+              testResult.message = 'Post test passed: Response data is correct, error is empty, and loading is false.';
+              console.log('[PostTestElement] Assertion Passed:', testResult.message);
+            } else {
+              testResult.message = `Assertion failed: Post conditions not met. Error: "${this.state.error}", Loading: ${this.state.loading}`;
+              console.error('[PostTestElement] Assertion Failed:', testResult.message);
+            }
+          } else {
+            testResult.message = `Assertion failed: Response data incorrect. Title: "${responseData.title}", ID present: ${responseData.hasOwnProperty('id')}`;
+            console.error('[PostTestElement] Assertion Failed:', testResult.message);
+          }
+        } else {
+          testResult.message = 'Assertion failed: No response data found after post operation and no error reported.';
+          console.error('[PostTestElement] Assertion Failed:', testResult.message);
+        }
+
+        // Ensure UI reflects the final state if using a reactive framework that needs a nudge
+        // For LitElement or similar, this might be this.requestUpdate()
+        // For the custom BaseComponent, it might be this.update() if it exists
+        this.update ? this.update() : this.requestUpdate ? this.requestUpdate() : null;
+        return testResult;
       }
   
       render() {
@@ -107,5 +157,9 @@ export function PostTestElementBuilder(ElevateElementClass) {
       }
     }
   
-    customElements.define('post-test-element', PostTestElement);
+    if (!customElements.get('post-test-element')) {
+      customElements.define('post-test-element', PostTestElement);
+      console.log('[PostTestElement] Custom element defined by PostTestElementBuilder.');
+    }
+    return PostTestElement;
   }

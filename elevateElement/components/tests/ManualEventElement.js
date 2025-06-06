@@ -58,6 +58,46 @@ export function ManualEventElementBuilder(ElevateElementClass) {
       this.emit('manual-internal', { source: 'internal' });
     }
 
+    async runTest() {
+      console.log('[ManualEventElement] Starting test...');
+      let allTestsPassed = true;
+      let messages = [];
+
+      // Test Native Event
+      this.dispatchNativeEvent();
+      await new Promise(resolve => setTimeout(resolve, 0)); // Wait for event propagation and setState
+
+      if (this.state.nativeStatus === 'Native event received!') {
+        messages.push('Native event assertion passed.');
+        console.log('[ManualEventElement] Assertion Passed: Native event status is correct.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: Native event status is "${this.state.nativeStatus}", expected "Native event received!".`);
+        console.error('[ManualEventElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      // Test Internal Event
+      this.emitInternalEvent();
+      await new Promise(resolve => setTimeout(resolve, 0)); // Wait for event propagation and setState
+
+      if (this.state.internalStatus === 'Internal event received!') {
+        messages.push('Internal event assertion passed.');
+        console.log('[ManualEventElement] Assertion Passed: Internal event status is correct.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: Internal event status is "${this.state.internalStatus}", expected "Internal event received!".`);
+        console.error('[ManualEventElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      // Ensure UI reflects the final state if using a reactive framework
+      this.update ? this.update() : this.requestUpdate ? this.requestUpdate() : null;
+
+      return {
+        success: allTestsPassed,
+        message: messages.join(' ')
+      };
+    }
+
     render() {
       return `
         <style>
@@ -91,5 +131,9 @@ export function ManualEventElementBuilder(ElevateElementClass) {
     }
   }
 
-  customElements.define('manual-event-element', ManualEventElement);
+  if (!customElements.get('manual-event-element')) {
+    customElements.define('manual-event-element', ManualEventElement);
+    console.log('[ManualEventElement] Custom element defined by ManualEventElementBuilder.');
+  }
+  return ManualEventElement;
 }

@@ -139,6 +139,10 @@ export function ChannelSyncTestElementBuilder() {
     }
 
     render() {
+      // Ensure this.tabId is defined for rendering, in case render is called before constructor fully completes or tabId is otherwise not set.
+      const tabId = this.tabId || 'N/A';
+      const globalCount = (typeof this.globalCount === 'number') ? this.globalCount : (StateManager.get('channelCount') !== undefined ? StateManager.get('channelCount') : 'N/A');
+
       return `
         <style>
           :host {
@@ -168,13 +172,98 @@ export function ChannelSyncTestElementBuilder() {
           <button class="reset-button">Reset Count</button>
 
           <div class="info">
-            <p><strong>Tab ID:</strong> ${this.tabId}</p>
-            <p><strong>Synced Count:</strong> ${this.globalCount}</p>
+            <p><strong>Tab ID:</strong> ${tabId}</p>
+            <p><strong>Synced Count:</strong> ${globalCount}</p>
           </div>
         </div>
       `;
     }
+
+    async runTest() {
+      console.log('[ChannelSyncTestElement] Starting test...');
+      let allTestsPassed = true;
+      let messages = [];
+
+      // Helper for micro-delay
+      const delay = () => new Promise(resolve => setTimeout(resolve, 0));
+
+      // --- Initial State & Increment Test ---
+      console.log('[ChannelSyncTestElement] Testing: Initial State & Increment...');
+      this.resetAndSync(); // Resets StateManager's 'channelCount' to 0 and calls this.syncState
+      await delay();       // Allow time for syncState and potential event loop ticks
+
+      let initialCount = StateManager.get('channelCount');
+      if (initialCount === 0 && this.globalCount === 0) {
+        messages.push('Initial state (after reset) assertion passed (StateManager and local globalCount are 0).');
+        console.log('[ChannelSyncTestElement] Assertion Passed: Initial state is 0.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: Initial state. StateManager: ${initialCount}, globalCount: ${this.globalCount}. Expected 0 for both.`);
+        console.error('[ChannelSyncTestElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      this.incrementAndSync(); // Increments StateManager's 'channelCount' and calls this.syncState
+      await delay();
+
+      let countAfterIncrementSM = StateManager.get('channelCount');
+      let countAfterIncrementLocal = this.globalCount;
+      if (countAfterIncrementSM === 1 && countAfterIncrementLocal === 1) {
+        messages.push('Increment assertion passed (StateManager and local globalCount are 1).');
+        console.log('[ChannelSyncTestElement] Assertion Passed: Incremented state is 1.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: After increment. StateManager: ${countAfterIncrementSM}, globalCount: ${countAfterIncrementLocal}. Expected 1 for both.`);
+        console.error('[ChannelSyncTestElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      // --- Reset Test ---
+      console.log('[ChannelSyncTestElement] Testing: Reset...');
+      this.resetAndSync();
+      await delay();
+
+      let countAfterResetSM = StateManager.get('channelCount');
+      let countAfterResetLocal = this.globalCount;
+      if (countAfterResetSM === 0 && countAfterResetLocal === 0) {
+        messages.push('Reset assertion passed (StateManager and local globalCount are 0).');
+        console.log('[ChannelSyncTestElement] Assertion Passed: Reset state is 0.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: After reset. StateManager: ${countAfterResetSM}, globalCount: ${countAfterResetLocal}. Expected 0 for both.`);
+        console.error('[ChannelSyncTestElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      // --- Simulated onSyncMessage Test ---
+      console.log('[ChannelSyncTestElement] Testing: Simulated onSyncMessage...');
+      const simulatedSyncValue = 5;
+      // Directly call onSyncMessage as if a message came from another tab/context
+      // This method updates StateManager and should also update this.globalCount via subscription
+      this.onSyncMessage({ count: simulatedSyncValue });
+      await delay(); // Allow StateManager subscription to fire and update this.globalCount
+
+      let countAfterSimulatedSyncSM = StateManager.get('channelCount');
+      let countAfterSimulatedSyncLocal = this.globalCount;
+
+      if (countAfterSimulatedSyncSM === simulatedSyncValue && countAfterSimulatedSyncLocal === simulatedSyncValue) {
+        messages.push(`Simulated onSyncMessage assertion passed (StateManager and local globalCount are ${simulatedSyncValue}).`);
+        console.log('[ChannelSyncTestElement] Assertion Passed: Simulated onSyncMessage set state to ${simulatedSyncValue}.`);
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: After simulated onSyncMessage. StateManager: ${countAfterSimulatedSyncSM}, globalCount: ${countAfterSimulatedSyncLocal}. Expected ${simulatedSyncValue} for both.`);
+        console.error('[ChannelSyncTestElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      this.updateUI(); // Ensure UI reflects final state
+
+      return {
+        success: allTestsPassed,
+        message: messages.join(' | ')
+      };
+    }
   }
 
-  customElements.define('channel-sync-test-element', ChannelSyncTestElement);
+  if (!customElements.get('channel-sync-test-element')) {
+    customElements.define('channel-sync-test-element', ChannelSyncTestElement);
+    console.log('[ChannelSyncTestElement] Custom element defined by ChannelSyncTestElementBuilder.');
+  }
+  return ChannelSyncTestElement;
 }

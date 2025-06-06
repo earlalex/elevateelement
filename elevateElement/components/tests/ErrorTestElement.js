@@ -38,23 +38,52 @@ export function ErrorTestElementBuilder(ElevateElement) {
       this.state.loading = true;
       this.state.error = '';
       this.state.attempts++;
-      this.updateUI();
+      // No updateUI() here, runTest will manage UI after assertions
 
       try {
         // This will fail - intentionally using a bad URL
         const response = await fetch('https://jsonplaceholder.typicode.com/invalid-endpoint');
+        // We shouldn't get here if the fetch fails as expected
         const data = await response.json();
-        
-        // We shouldn't get here
-        this.state.error = 'Unexpectedly succeeded!';
+        this.state.error = 'Unexpectedly succeeded! Fetch should have failed.';
         this.state.loading = false;
+        this.updateUI(); // Update UI to show unexpected success
+        return { success: false, message: 'Assertion failed: Fetch unexpectedly succeeded.' };
       } catch (error) {
         console.error('[ErrorTestElement] Expected error caught:', error);
         this.state.error = `Fetch failed as expected (Attempt #${this.state.attempts})`;
         this.state.loading = false;
+        // Assertions are now part of runTest, but we set state here
+      }
+      // No updateUI() here, runTest will manage UI after assertions
+      // This method's return value is not directly used by runTest for assertions,
+      // but runTest will check the state set by this method.
+      return { success: true, message: 'Error triggered successfully, state updated for assertion.' };
+    }
+
+    async runTest() {
+      console.log('[ErrorTestElement] Starting test...');
+      await this.triggerError(); // Call triggerError and wait for it to complete
+
+      // Assertions
+      let testResult = { success: false, message: '' };
+
+      if (this.state.error && this.state.error.includes('Fetch failed as expected')) {
+        if (this.state.loading === false) {
+          testResult.success = true;
+          testResult.message = 'Error test passed: Error message is correct and loading is false.';
+          console.log('[ErrorTestElement] Assertion Passed:', testResult.message);
+        } else {
+          testResult.message = 'Assertion failed: loading state is true after error.';
+          console.error('[ErrorTestElement] Assertion Failed:', testResult.message);
+        }
+      } else {
+        testResult.message = `Assertion failed: error message is "${this.state.error}", expected it to include "Fetch failed as expected".`;
+        console.error('[ErrorTestElement] Assertion Failed:', testResult.message);
       }
       
-      this.updateUI();
+      this.updateUI(); // Update UI with final state after assertions
+      return testResult;
     }
 
     template() {
@@ -164,8 +193,9 @@ export function ErrorTestElementBuilder(ElevateElement) {
   // Define the element if it doesn't exist
   if (!customElements.get('error-test-element')) {
     customElements.define('error-test-element', ErrorTestElement);
-    console.log('[ErrorTestElement] Custom element defined');
+    console.log('[ErrorTestElement] Custom element defined by ErrorTestElementBuilder.');
   }
-  
+  // The builder's responsibility is now just to define the element and return the class.
+  // Test execution will be handled externally (e.g., by Tests.js).
   return ErrorTestElement;
 }
