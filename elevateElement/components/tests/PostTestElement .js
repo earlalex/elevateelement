@@ -8,13 +8,16 @@ export function PostTestElementBuilder(ElevateElementClass) {
         this.state = {
           response: null,
           loading: false,
-          error: ''
+          error: '',
+          testResult: { success: null, message: 'Test not run yet.' }
         };
       }
   
       connectedCallback() {
         super.connectedCallback();
         console.log('[PostTestElement] connected');
+        // Assuming ElevateElementClass base handles event delegation setup from events()
+        // or requires manual setup if not. If events() is standard, this should be fine.
       }
   
       disconnectedCallback() {
@@ -22,10 +25,20 @@ export function PostTestElementBuilder(ElevateElementClass) {
         super.disconnectedCallback && super.disconnectedCallback();
       }
   
+      async handleRunThisTest() {
+        try {
+          await this.runTest();
+        } catch (e) {
+          this.setState({ testResult: { success: false, message: `Test execution error: ${e.message}` } });
+          console.error('[PostTestElement] Error during runTest from button:', e);
+        }
+      }
+
       events() {
         return {
           click: {
             '.post-button': (e) => this.sendPost(e),
+            '.run-this-test-button': () => this.handleRunThisTest(),
             _options: { passive: true }
           }
         };
@@ -107,14 +120,20 @@ export function PostTestElementBuilder(ElevateElementClass) {
           console.error('[PostTestElement] Assertion Failed:', testResult.message);
         }
 
-        // Ensure UI reflects the final state if using a reactive framework that needs a nudge
-        // For LitElement or similar, this might be this.requestUpdate()
-        // For the custom BaseComponent, it might be this.update() if it exists
-        this.update ? this.update() : this.requestUpdate ? this.requestUpdate() : null;
-        return testResult;
+        const result = testResult; // Use a different name to avoid confusion if runTest is called again
+        this.setState({ testResult: result });
+        // Assuming this.setState triggers a re-render (e.g., via requestUpdate in LitElement based classes)
+        // If not, uncomment: this.update ? this.update() : this.requestUpdate ? this.requestUpdate() : null;
+        return result;
       }
   
       render() {
+        const testResultStatusClass = this.state.testResult.success === true
+          ? 'success'
+          : this.state.testResult.success === false
+            ? 'failure'
+            : 'not-run';
+
         return `
           <style>
             :host {
@@ -122,28 +141,47 @@ export function PostTestElementBuilder(ElevateElementClass) {
               font-family: sans-serif;
               padding: 1rem;
             }
-            button {
+            button { /* General button styling */
               padding: 0.5rem 1rem;
-              background: var(--primary-color, #6200ea);
-              color: white;
               border: none;
               border-radius: 5px;
               cursor: pointer;
               margin-bottom: 1rem;
+              margin-right: 0.5rem; /* Space between buttons */
+              color: white; /* Default text color for buttons */
+            }
+            .post-button {
+              background: var(--primary-color, #6200ea);
+            }
+            .run-this-test-button {
+              background: var(--secondary-color, #03dac6); /* Example color */
             }
             pre {
               background: #f5f5f5;
               padding: 1rem;
               border-radius: 5px;
               overflow: auto;
+              border: 1px solid #ddd;
             }
             p.error {
-              color: red;
+              color: var(--error-color, red);
             }
+            .test-result {
+              margin-top: 10px;
+              padding: 10px;
+              border: 1px solid #eee;
+              border-radius: 5px;
+            }
+            .test-result h4 { margin-top: 0; margin-bottom: 5px; }
+            .status-message { padding: 5px; border-radius: 3px; }
+            .status-message.success { color: green; background-color: #e6ffe6; border: 1px solid green; }
+            .status-message.failure { color: red; background-color: #ffe6e6; border: 1px solid red;}
+            .status-message.not-run { color: orange; background-color: #fff0e0; border: 1px solid orange;}
           </style>
   
           <div>
             <button class="post-button">Send Test Post</button>
+            <button class="run-this-test-button">Run This Test</button>
   
             ${this.state.loading
               ? `<p>Loading...</p>`
@@ -152,6 +190,13 @@ export function PostTestElementBuilder(ElevateElementClass) {
                 : this.state.response
                   ? `<pre>${this.state.response}</pre>`
                   : `<p>No response yet.</p>`}
+
+            <div class="test-result">
+              <h4>Test Result:</h4>
+              <p class="status-message ${testResultStatusClass}">
+                ${this.state.testResult.message}
+              </p>
+            </div>
           </div>
         `;
       }

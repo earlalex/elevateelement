@@ -13,18 +13,37 @@ export function ErrorTestElementBuilder(ElevateElement) {
       this.state = {
         error: '',
         loading: false,
-        attempts: 0
+        attempts: 0,
+        testResult: { success: null, message: 'Test not run yet.' } // Initial state for test result
       };
     }
 
     connectedCallback() {
       super.connectedCallback();
       console.log('[ErrorTestElement] connected');
+      // Ensure event handlers are attached if not using a declarative event system from BaseComponent
+      if (!this.eventSubscriptions || Object.keys(this.eventSubscriptions).length === 0) {
+        this.attachEventHandlers();
+      }
     }
 
     attachEventHandlers() {
+      // It's crucial that this method can be called multiple times without duplicating listeners,
+      // or is called only once. BaseComponentUtils.attachEventHandlers should ideally handle this.
+      // If not, manual .removeEventListener before .addEventListener might be needed if called multiple times.
       BaseComponentUtils.attachEventHandlers(this, {
-        '.trigger-error-button': this.triggerError
+        '.trigger-error-button': this.triggerError,
+        '.run-this-test-button': async () => { // Make the handler async to await runTest
+          try {
+            await this.runTest(); // runTest updates state internally
+          } catch (e) {
+            console.error('[ErrorTestElement] Error running test from button:', e);
+            // Optionally update UI to show this specific error
+            this.setState({
+              testResult: { success: false, message: `Test execution error: ${e.message}` }
+            });
+          }
+        }
       });
     }
 
@@ -66,33 +85,43 @@ export function ErrorTestElementBuilder(ElevateElement) {
       await this.triggerError(); // Call triggerError and wait for it to complete
 
       // Assertions
-      let testResult = { success: false, message: '' };
+      let result = { success: false, message: '' }; // Renamed to avoid conflict with this.state.testResult
 
       if (this.state.error && this.state.error.includes('Fetch failed as expected')) {
         if (this.state.loading === false) {
-          testResult.success = true;
-          testResult.message = 'Error test passed: Error message is correct and loading is false.';
-          console.log('[ErrorTestElement] Assertion Passed:', testResult.message);
+          result.success = true;
+          result.message = 'Error test passed: Error message is correct and loading is false.';
+          console.log('[ErrorTestElement] Assertion Passed:', result.message);
         } else {
-          testResult.message = 'Assertion failed: loading state is true after error.';
-          console.error('[ErrorTestElement] Assertion Failed:', testResult.message);
+          result.message = 'Assertion failed: loading state is true after error.';
+          console.error('[ErrorTestElement] Assertion Failed:', result.message);
         }
       } else {
-        testResult.message = `Assertion failed: error message is "${this.state.error}", expected it to include "Fetch failed as expected".`;
-        console.error('[ErrorTestElement] Assertion Failed:', testResult.message);
+        result.message = `Assertion failed: error message is "${this.state.error}", expected it to include "Fetch failed as expected".`;
+        console.error('[ErrorTestElement] Assertion Failed:', result.message);
       }
       
-      this.updateUI(); // Update UI with final state after assertions
-      return testResult;
+      this.setState({ testResult: result }); // Update state with the test result
+      // updateUI will be called by setState if it's part of the BaseComponent logic,
+      // otherwise, if BaseComponent.setState doesn't trigger re-render, uncomment below.
+      // this.updateUI();
+      return result; // Still return the result for programmatic use
     }
 
     template() {
+      const testResultStatusClass = this.state.testResult.success === true
+        ? 'success'
+        : this.state.testResult.success === false
+          ? 'failure'
+          : 'not-run';
+
       return `
         <div class="error-test-container">
           <h3>Error Test</h3>
           <p>This component tests error handling by making an invalid request.</p>
           
           <button class="trigger-error-button" type="button">Trigger Fetch Error</button>
+          <button class="run-this-test-button" type="button">Run This Test</button>
 
           <div class="status ${this.state.loading ? 'loading' : this.state.error ? 'error' : ''}">
             ${this.state.loading
@@ -102,12 +131,20 @@ export function ErrorTestElementBuilder(ElevateElement) {
                 : `<p>No errors triggered yet. Click the button to test error handling.</p>`
             }
           </div>
+
+          <div class="test-result">
+            <h4>Test Result:</h4>
+            <p class="status-message ${testResultStatusClass}">
+              ${this.state.testResult.message}
+            </p>
+          </div>
         </div>
       `;
     }
 
     styles() {
-      return `
+      // Keeping original styles, adding new ones for test results
+      const originalStyles = `
         .error-test-container {
           padding: var(--space-lg);
           margin: var(--space-md) 0;
@@ -119,7 +156,7 @@ export function ErrorTestElementBuilder(ElevateElement) {
                     box-shadow var(--duration-medium) var(--easing-standard);
         }
         
-        h3 {
+        h3, h4 { /* Apply to h4 as well */
           color: var(--color-on-surface-high);
           margin-top: 0;
           margin-bottom: var(--space-sm);
@@ -133,14 +170,12 @@ export function ErrorTestElementBuilder(ElevateElement) {
           color: var(--color-on-surface-medium);
         }
         
-        .trigger-error-button {
+        .trigger-error-button, .run-this-test-button { /* Apply to new button */
           position: relative;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           padding: var(--space-xs) var(--space-md);
-          background-color: var(--color-error);
-          color: var(--color-on-error);
           border: none;
           border-radius: var(--radius-md);
           font-family: var(--font-sans);
@@ -153,8 +188,19 @@ export function ErrorTestElementBuilder(ElevateElement) {
                       transform var(--duration-short) var(--easing-standard);
           box-shadow: var(--elevation-1);
           margin-bottom: var(--space-md);
+          margin-right: var(--space-sm); /* Add some margin between buttons */
           min-height: 44px;
           z-index: 1;
+        }
+
+        .trigger-error-button {
+          background-color: var(--color-error);
+          color: var(--color-on-error);
+        }
+
+        .run-this-test-button {
+          background-color: var(--color-secondary); /* Example color */
+          color: var(--color-on-secondary);
         }
         
         .trigger-error-button:hover {
@@ -162,8 +208,14 @@ export function ErrorTestElementBuilder(ElevateElement) {
           box-shadow: var(--elevation-2);
           transform: translateY(-2px);
         }
+
+        .run-this-test-button:hover {
+          background-color: var(--color-secondary-dark); /* Example hover color */
+          box-shadow: var(--elevation-2);
+          transform: translateY(-2px);
+        }
         
-        .trigger-error-button:active {
+        .trigger-error-button:active, .run-this-test-button:active {
           transform: translateY(0);
           box-shadow: var(--elevation-1);
         }
@@ -186,7 +238,42 @@ export function ErrorTestElementBuilder(ElevateElement) {
           color: var(--color-error);
           border: 1px solid rgba(255, 59, 48, 0.2);
         }
+
+        .test-result {
+          margin-top: var(--space-lg);
+          padding: var(--space-md);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+        }
+
+        .test-result h4 {
+          margin-bottom: var(--space-xs);
+        }
+
+        .status-message {
+          padding: var(--space-sm);
+          border-radius: var(--radius-xs);
+        }
+
+        .status-message.success {
+          background-color: rgba(40, 167, 69, 0.1); /* Light green */
+          color: var(--color-success, #198754);
+          border: 1px solid rgba(40, 167, 69, 0.2);
+        }
+
+        .status-message.failure {
+          background-color: rgba(220, 53, 69, 0.1); /* Light red */
+          color: var(--color-error, #dc3545);
+          border: 1px solid rgba(220, 53, 69, 0.2);
+        }
+
+        .status-message.not-run {
+          background-color: rgba(108, 117, 125, 0.1); /* Light gray */
+          color: var(--color-on-surface-medium, #6c757d);
+          border: 1px solid rgba(108, 117, 125, 0.2);
+        }
       `;
+      return originalStyles;
     }
   }
 

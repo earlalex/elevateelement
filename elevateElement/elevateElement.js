@@ -136,7 +136,7 @@ const ElevateElement = buildElevateElement();
 
 // Initialize test components
 // testElevateElement might need to be adapted to test Lit components.
-testElevateElement(ElevateElement);
+// testElevateElement(ElevateElement); // Automatic test execution disabled
 
 // Register the base element
 if (!customElements.get('elevate-element')) {
