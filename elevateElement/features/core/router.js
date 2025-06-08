@@ -496,12 +496,11 @@ class InternalRouter {
       const menuElements = document.querySelectorAll(selector);
       menuElements.forEach(menu => {
         if (menu) {
-          // Remove active class
+          // Remove active class - this should trigger CSS to hide the menu
           menu.classList.remove('active');
-          // Force hide with multiple important flags
-          menu.style.cssText += 'display: none !important; opacity: 0 !important; visibility: hidden !important;';
           // Remove other potential active classes
           menu.classList.remove('nav-open');
+          // Avoid direct style manipulation for display:none here
         }
       });
     });
@@ -531,12 +530,15 @@ class InternalRouter {
     // Force CSS to be recomputed
     if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(() => {
-        // Double-check menus are closed after layout
+        // Double-check menus are closed after layout by ensuring classes are removed
+        // No direct style manipulation here, rely on CSS rules via classes
         menuSelectors.forEach(selector => {
           const menuElements = document.querySelectorAll(selector);
           menuElements.forEach(menu => {
-            if (menu) {
-              menu.style.cssText += 'display: none !important;';
+            if (menu && !menu.classList.contains('active')) {
+              // If it's still not hidden by CSS, this is a deeper issue
+              // but we avoid forcing display:none from JS here.
+              // console.log('[Router] Fallback closeMenu: menu still visible after class removal in rAF for selector:', selector);
             }
           });
         });
