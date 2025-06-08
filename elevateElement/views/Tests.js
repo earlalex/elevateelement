@@ -216,20 +216,24 @@ export const Tests = {
                 for (const tag of testElementTags) {
                     const element = document.querySelector(tag); // Query within the rendered view
                     if (element) {
-                        if (typeof element.runTest === 'function') {
-                            testsFoundAndRunnable++;
-                            console.log(`[RunAllTests] Attempting to run test for ${tag}`);
-                            try {
+                        try {
+                            // Wait for the custom element to be defined and upgraded
+                            console.log(`[RunAllTests] Waiting for ${tag} to be defined...`);
+                            await customElements.whenDefined(tag);
+                            console.log(`[RunAllTests] ${tag} is defined.`);
+
+                            if (typeof element.runTest === 'function') {
+                                testsFoundAndRunnable++;
+                                console.log(`[RunAllTests] Attempting to run test for ${tag}`);
                                 await element.runTest(); // runTest updates its own UI
                                 testsSuccessfullyTriggered++;
                                 console.log(`[RunAllTests] Successfully triggered test for ${tag}`);
-                            } catch (e) {
-                                console.error(`[RunAllTests] Error triggering test for ${tag}:`, e);
-                                // The individual component should display its own error if runTest fails internally.
-                                // This catch is for errors in the process of calling runTest itself.
+                            } else {
+                                console.warn(`[RunAllTests] Test element ${tag} found and defined, but runTest method is STILL missing.`);
                             }
-                        } else {
-                            console.warn(`[RunAllTests] Test element ${tag} found, but runTest method is missing.`);
+                        } catch (e) {
+                            console.error(`[RunAllTests] Error during test for ${tag} (post-definition or during runTest):`, e);
+                            // Individual component might display its error, or we can log it here.
                         }
                     } else {
                         console.warn(`[RunAllTests] Test element ${tag} not found in the DOM.`);
