@@ -31,8 +31,8 @@ export const menuState = {
       return;
     }
     
-    // Clear any existing inline styles first
-    menu.removeAttribute('style');
+    // Clear any existing inline styles first - REMOVED
+    // menu.removeAttribute('style');
     
     if (this.isOpen) {
       menu.classList.add('active');
@@ -41,15 +41,7 @@ export const menuState = {
       document.body.style.overflow = 'hidden';
       hamburger.setAttribute('aria-expanded', 'true');
       
-      // Use a single style application
-      requestAnimationFrame(() => {
-        menu.style.cssText = `
-          display: flex !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-          z-index: 9998 !important;
-        `;
-      });
+      // REMOVED requestAnimationFrame block for applying inline styles
     } else {
       menu.classList.remove('active');
       hamburger.classList.remove('active');
@@ -57,10 +49,7 @@ export const menuState = {
       document.body.style.overflow = '';
       hamburger.setAttribute('aria-expanded', 'false');
       
-      // Force menu closed with a single style application
-      requestAnimationFrame(() => {
-        menu.style.cssText = 'display: none !important;';
-      });
+      // REMOVED requestAnimationFrame block for applying display:none
     }
     
     // Dispatch event for other components
@@ -69,6 +58,10 @@ export const menuState = {
     }));
 }
 };
+
+if (typeof window !== 'undefined') {
+  window.menuState = menuState;
+}
 
 // Initialize menu state functionality
 import { generateMenu } from './menuConfig.js';
