@@ -102,55 +102,79 @@ export async function buildDynamicNavigation(ElevateElement) {
       console.error('[NavigationBuilder] No navigation root element found with [data-elevateElement="navigation"]');
       return Promise.reject(new Error('No navigation root element found'));
     }
-
-        // Save the hamburger button if it exists    const hamburgerButton = navRoot.querySelector('.hamburger-button');    const navContainer = navRoot.querySelector('.nav-container');        // Clear existing navigation but preserve container structure if present    if (navContainer && hamburgerButton) {      console.log('[NavigationBuilder] Found hamburger button, preserving it');      // Just clear the menu, not the whole navigation      const menu = navContainer.querySelector('#main-navigation-menu');      if (menu) {        menu.innerHTML = '';      } else {        // Clear everything except hamburger button        const hamburgerHTML = hamburgerButton.outerHTML;        navContainer.innerHTML = hamburgerHTML;      }    } else {      // Standard clear if no hamburger button exists      navRoot.innerHTML = '';    }        // Ensure visibility    navRoot.style.display = 'block';    navRoot.style.visibility = 'visible';    navRoot.style.opacity = '1';
     
     console.log('[NavigationBuilder] Building navigation in:', navRoot);
 
-    // Force visible dimensions on nav container
-    navRoot.style.width = '100%';
-    navRoot.style.minHeight = '70px'; 
-    navRoot.style.height = 'auto';
-    navRoot.style.backgroundColor = '#f0f0f0';
-    navRoot.style.border = '2px solid #ddd';
-    navRoot.style.padding = '10px';
-    navRoot.style.margin = '20px 0';
-    navRoot.style.overflow = 'visible';
+    // Ensure navRoot has some forced visible dimensions for debugging if needed.
+    // These might be overridden by actual CSS.
+    navRoot.style.width = navRoot.style.width || '100%'; // Keep if already set
+    navRoot.style.minHeight = navRoot.style.minHeight || '50px';
+    navRoot.style.border = navRoot.style.border || '1px dashed #ccc'; // Visual aid for debugging
+    navRoot.style.padding = navRoot.style.padding || '5px';
+    navRoot.style.boxSizing = 'border-box';
+
+
+    // Get or create Hamburger Button
+    let hamburgerButton = navRoot.querySelector('.hamburger-button');
+    if (!hamburgerButton) {
+        console.log('[NavigationBuilder] Creating .hamburger-button.');
+        hamburgerButton = document.createElement('button');
+        hamburgerButton.className = 'hamburger-button';
+        hamburgerButton.setAttribute('aria-label', 'Toggle navigation menu');
+        hamburgerButton.setAttribute('aria-expanded', 'false');
+        hamburgerButton.innerHTML = '<span></span><span></span><span></span>';
+        // Prepend hamburger so it usually appears before the menu list
+        navRoot.prepend(hamburgerButton);
+    }
+
+    // Get or create Main Menu Element
+    let menuElement = navRoot.querySelector('#main-navigation-menu');
+    if (!menuElement) {
+        console.log('[NavigationBuilder] Creating #main-navigation-menu.');
+        menuElement = document.createElement('menu'); // Use 'menu' tag
+        menuElement.id = 'main-navigation-menu';
+        menuElement.className = 'main-menu'; // Add class for styling
+        menuElement.setAttribute('role', 'menubar');
+        navRoot.appendChild(menuElement); // Append menu after hamburger (or as last child if no hamburger initially)
+    }
     
+    // Clear only previous items from menuElement before adding new ones
+    menuElement.innerHTML = '';
+
     const orientation = navRoot.getAttribute('orientation') || 'horizontal';
     const justify = navRoot.getAttribute('justify') || 'left';
-    
-    // Completely different approach: Build HTML string and insert it all at once
-    // This avoids DOM manipulation issues with custom elements
-    let menuHtml = `
-      <menu role="menubar" id="main-navigation-menu" class="main-menu" style="
-        display: flex;
-        flex-direction: ${orientation === 'vertical' ? 'column' : 'row'};
-        justify-content: ${justify === 'right' ? 'flex-end' : 'flex-start'};
-        flex-wrap: wrap;
-        gap: 10px;
-        padding: 15px;
-        margin: 0;
-        width: 100%;
-        min-height: 60px;
-        background-color: #f5f5f5;
-        list-style: none;
-        border: 1px solid #e0e0e0;
-        border-radius: 4px;
-      ">
+
+    // Apply base styles that were in menuHtml string - this is important
+    // These styles should ideally be in navigation.css but are applied here for self-containment if CSS is missing/not loaded.
+    menuElement.style.cssText = `
+      display: flex; /* This will be controlled by .active class via CSS for mobile */
+      flex-direction: ${orientation === 'vertical' ? 'column' : 'row'};
+      justify-content: ${justify === 'right' ? 'flex-end' : 'flex-start'};
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 15px;
+      margin: 0;
+      width: 100%;
+      min-height: 60px; /* Or adjust as needed */
+      background-color: #f5f5f5; /* Example, use CSS vars if possible */
+      list-style: none;
+      border: 1px solid #e0e0e0; /* Example */
+      border-radius: 4px; /* Example */
     `;
     
-    // Build regular links first - we'll convert them to route-link elements later
+    let menuItemsHtml = ''; // Initialize empty string for list items
+
     allViews.forEach(view => {
-      if (!view.title) return; // Skip views without titles
+      if (!view.title) return;
       
       const isActive = (Router.parsePath() === view.path);
       const activeClass = isActive ? 'active' : '';
+      // Inline styles for active/inactive states are kept for now, but could be moved to CSS
       const activeStyle = isActive ? 
         'font-weight: bold; background-color: #6200ea; color: #ffffff;' : 
         'background-color: #efefef; color: #333333;';
       
-      menuHtml += `
+      menuItemsHtml += `
         <li style="
           display: ${orientation === 'vertical' ? 'block' : 'inline-block'};
           margin: 0;
@@ -170,7 +194,7 @@ export async function buildDynamicNavigation(ElevateElement) {
                border: 1px solid #ddd;
                border-radius: 4px;
                text-align: center;
-               font-family: Arial, sans-serif;
+               font-family: Arial, sans-serif; /* Consider using CSS variables */
                min-height: 20px;
                cursor: pointer;
                visibility: visible;
@@ -182,26 +206,18 @@ export async function buildDynamicNavigation(ElevateElement) {
       `;
     });
     
-    menuHtml += '</menu>';
+    menuElement.innerHTML = menuItemsHtml; // Populate the menu element
+
+    // At this point, menuElement and hamburgerButton are guaranteed to exist in navRoot.
+    // The subsequent logic for attaching event listeners should use these variables directly.
+    // The existing code re-queries for hamburgerButton and menuElement.querySelectorAll('.nav-link'),
+    // which is fine since they are now confirmed to be in the DOM.
+
+    // Add click handlers to links (using the guaranteed menuElement)
+    const navLinks = menuElement.querySelectorAll('.nav-link');
+    // hamburgerButton variable is already defined and guaranteed
     
-    // Insert the menu HTML depending on container structure
-    const navContainer = navRoot.querySelector('.nav-container');
-    if (navContainer && navContainer.querySelector('.hamburger-button')) {
-      console.log('[NavigationBuilder] Inserting menu into existing nav container with hamburger');
-      navContainer.insertAdjacentHTML('beforeend', menuHtml);
-    } else {
-      // Standard insertion if no container or hamburger
-      navRoot.innerHTML = menuHtml;
-    }
-    // Find all links and convert to route-link elements if needed
-    const menuElement = navRoot.querySelector('#main-navigation-menu');
-    
-    if (menuElement) {
-      // Add click handlers to links
-      const navLinks = menuElement.querySelectorAll('.nav-link');
-      const hamburgerButton = navRoot.querySelector('.hamburger-button');
-      
-      navLinks.forEach(link => {
+    navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
