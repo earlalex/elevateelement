@@ -32,6 +32,40 @@ ElevateElement emphasizes ownership, customizability, and performance, keeping y
 ✅ Config loader with dev mode and client info  
 ✅ Test element suite for verifying all features  
 
+## Lit Integration
+
+ElevateElement utilizes [Lit](https://lit.dev/) for building efficient, expressive, and interoperable web components. Core parts of the framework, including the main `elevate-element` custom element, are built using Lit's foundational `LitElement` class. This allows for reactive properties, scoped styles, and a declarative templating system.
+
+**Key Features:**
+- **Component-Based Architecture:** Lit promotes a modular approach to UI development.
+- **Reactivity:** Components can reactively update when their properties change.
+- **Scoped Styles:** CSS styles are encapsulated within components, preventing global conflicts.
+- **Templates:** Uses `html` tagged template literals for defining component structure.
+
+**Example:**
+A simple Lit component example can be found in `elevateElement/components/tests/TestLitComponent.js`. You can view this component in action by navigating to the `/test-lit` route in the application. This example demonstrates a basic Lit component rendering content and also shows how HTMX can be used within a Lit component.
+
+## HTMX Integration
+
+[HTMX](https://htmx.org/) is integrated into ElevateElement to enhance HTML by providing modern browser features directly in HTML markup, rather than relying heavily on JavaScript. It allows for dynamic content loading, partial page updates, and server interactions with minimal JavaScript.
+
+**Key Features:**
+- **HTML-Centric:** Define AJAX requests, SSE connections, WebSockets, etc., directly in your HTML attributes.
+- **Partial Updates:** Easily update only specific parts of a page (e.g., using `hx-target` and `hx-swap`).
+- **Reduced JavaScript:** Simplifies dynamic interactions, often removing the need for custom JavaScript for common AJAX patterns.
+
+**Examples:**
+
+1.  **Basic HTMX Content Loading:**
+    - A demonstration of HTMX fetching an HTML snippet can be seen in `elevateElement/views/HtmxTestView.js`. This view is accessible via the `/test-htmx` route.
+    - The HTML snippet loaded is located at `elevateElement/views/partials/htmx-content.html`.
+    - The server (`server.js`) is configured to serve this snippet and also provides a dynamic data endpoint (`/htmx-current-time`) which is used within the loaded snippet to show HTMX's capability for nested dynamic updates.
+
+2.  **HTMX within a Lit Component:**
+    - As mentioned in the Lit section, `elevateElement/components/tests/TestLitComponent.js` (viewable at `/test-lit`) also demonstrates how an HTMX-powered element can be embedded and function correctly within a Lit component. This allows for Lit to manage the component structure while HTMX handles specific dynamic interactions within it.
+
+To ensure HTMX works correctly, the application server (`server.js`) has been configured with specific endpoints to serve HTML partials and dynamic data required by the HTMX examples.
+
 ## Development Roadmap
 
 ### 🧱 1. Finalize Core Components

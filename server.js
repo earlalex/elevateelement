@@ -19,6 +19,29 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
   console.log(`${req.method} ${req.url}`);
+
+  // Handle /htmx-current-time endpoint
+  if (req.url === '/htmx-current-time') {
+    const currentTime = new Date().toLocaleTimeString();
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(`<span>${currentTime}</span>`);
+    return;
+  }
+
+  // Handle /htmx-content.html endpoint
+  if (req.url === '/htmx-content.html') {
+    const htmxSnippetPath = path.join(__dirname, 'elevateElement/views/partials/htmx-content.html');
+    fs.readFile(htmxSnippetPath, (err, content) => {
+      if (err) {
+        res.writeHead(500);
+        res.end('Error loading htmx-content.html');
+      } else {
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(content, 'utf-8');
+      }
+    });
+    return;
+  }
   
   // Handle SPA routes - redirect to index.html
   let filePath = '.' + req.url;
