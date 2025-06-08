@@ -235,6 +235,35 @@ class InternalRouter {
     }
 }
 
+    updateURL(path) {
+      // Avoid redundant pushes if the path is already what the browser shows
+      // and also what the router thinks is current.
+      // For history mode, compare against pathname. For hash mode, compare against hash.
+      const currentBrowserPath = this.useHistory ? window.location.pathname : window.location.hash.replace(/^#/, '') || '/';
+      const normalizedCurrentBrowserPath = currentBrowserPath.startsWith('/') ? currentBrowserPath : '/' + currentBrowserPath;
+
+
+      if (this.currentPath === path && normalizedCurrentBrowserPath === path) {
+        // console.log(`[Router] updateURL: Path ${path} is already current and matches browser. No change needed.`);
+        return;
+      }
+
+      if (this.useHistory) {
+        // console.log(`[Router] updateURL: Pushing history state for ${path}`);
+        window.history.pushState({ path }, '', path);
+      } else {
+        const newHash = path.startsWith('#') ? path : `#${path.startsWith('/') ? path.substring(1) : path}`;
+        // console.log(`[Router] updateURL: Setting hash to ${newHash}`);
+        if (window.location.hash !== newHash) {
+            window.location.hash = newHash;
+        }
+      }
+      // this.currentPath = path; // currentPath is typically updated by notifySubscribers or when handling route change.
+                               // Let's avoid setting it directly here to prevent potential conflicts,
+                               // as navigate() calls notifySubscribers which updates currentPath.
+      console.log(`[Router] Browser URL update attempted for: ${path}`);
+    }
+
   navigate(path) {
     try {
       if (!this.initialized) {
