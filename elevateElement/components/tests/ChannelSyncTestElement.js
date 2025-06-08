@@ -19,6 +19,10 @@ export function ChannelSyncTestElementBuilder() {
       if (!this.shadowRoot) {
         this.attachShadow({ mode: 'open' });
       }
+
+      this.state = { // Explicitly define a state object for testResult
+        testResult: { success: null, message: 'Test not run yet.' }
+      };
       
       // Initialize global state if it doesn't exist
       if (StateManager.get('channelCount') === undefined) {
@@ -30,8 +34,8 @@ export function ChannelSyncTestElementBuilder() {
       
       // Subscribe to state changes
       this._unsubscribe = StateManager.subscribe('channelCount', (newValue) => {
-        this.globalCount = newValue;
-        this.updateUI();
+        this.globalCount = newValue; // This directly mutates a property
+        this.updateUI(); // this.updateUI will re-render and re-attach listeners
       });
     }
 
@@ -39,9 +43,9 @@ export function ChannelSyncTestElementBuilder() {
       super.connectedCallback();
       console.log('[ChannelSyncTestElement] connected');
       
-      // Manual event binding instead of using addEvents
+      // Initial UI render and event listener setup
+      // updateUI calls addEventListeners, so just one call is fine.
       this.updateUI();
-      this.addEventListeners();
       
       // Open the BroadcastChannel
       this.openChannel();
@@ -72,17 +76,24 @@ export function ChannelSyncTestElementBuilder() {
       // Then attach event listeners using proper binding
       const incrementButton = this.shadowRoot.querySelector('.increment-button');
       const resetButton = this.shadowRoot.querySelector('.reset-button');
+      const runTestButton = this.shadowRoot.querySelector('.run-this-test-button');
       
       if (incrementButton) {
-        // Use bound function to maintain context
+        if (this._boundIncrementAndSync) incrementButton.removeEventListener('click', this._boundIncrementAndSync);
         this._boundIncrementAndSync = this.incrementAndSync.bind(this);
         incrementButton.addEventListener('click', this._boundIncrementAndSync);
       }
       
       if (resetButton) {
-        // Use bound function to maintain context
+        if (this._boundResetAndSync) resetButton.removeEventListener('click', this._boundResetAndSync);
         this._boundResetAndSync = this.resetAndSync.bind(this);
         resetButton.addEventListener('click', this._boundResetAndSync);
+      }
+
+      if (runTestButton) {
+        if (this._boundHandleRunThisTest) runTestButton.removeEventListener('click', this._boundHandleRunThisTest);
+        this._boundHandleRunThisTest = this.handleRunThisTest.bind(this);
+        runTestButton.addEventListener('click', this._boundHandleRunThisTest);
       }
     }
     
@@ -90,13 +101,26 @@ export function ChannelSyncTestElementBuilder() {
     removeEventListeners() {
       const incrementButton = this.shadowRoot.querySelector('.increment-button');
       const resetButton = this.shadowRoot.querySelector('.reset-button');
+      const runTestButton = this.shadowRoot.querySelector('.run-this-test-button');
       
       if (incrementButton && this._boundIncrementAndSync) {
         incrementButton.removeEventListener('click', this._boundIncrementAndSync);
       }
-      
       if (resetButton && this._boundResetAndSync) {
         resetButton.removeEventListener('click', this._boundResetAndSync);
+      }
+      if (runTestButton && this._boundHandleRunThisTest) {
+        runTestButton.removeEventListener('click', this._boundHandleRunThisTest);
+      }
+    }
+
+    async handleRunThisTest() {
+      try {
+        await this.runTest(); // runTest will update state.testResult and call updateUI
+      } catch (e) {
+        this.state.testResult = { success: false, message: `Test execution error: ${e.message}` };
+        this.updateUI(); // Ensure UI updates on direct error
+        console.error('[ChannelSyncTestElement] Error during runTest from button:', e);
       }
     }
 
@@ -139,6 +163,14 @@ export function ChannelSyncTestElementBuilder() {
     }
 
     render() {
+      const tabId = this.tabId || 'N/A';
+      const globalCount = (typeof this.globalCount === 'number') ? this.globalCount : (StateManager.get('channelCount') !== undefined ? StateManager.get('channelCount') : 'N/A');
+      const testResultStatusClass = this.state.testResult.success === true
+        ? 'success'
+        : this.state.testResult.success === false
+          ? 'failure'
+          : 'not-run';
+
       return `
         <style>
           :host {
@@ -146,35 +178,130 @@ export function ChannelSyncTestElementBuilder() {
             font-family: sans-serif;
             padding: 1rem;
           }
-          button {
+          button { /* General button styling */
             padding: 0.5rem 1rem;
             margin-right: 1rem;
             margin-bottom: 1rem;
-            background: var(--primary-color, #6200ea);
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
           }
+          .increment-button { background: var(--primary-color, #6200ea); }
+          .reset-button { background: var(--warning-color, #ffc107); color: black; }
+          .run-this-test-button { background: var(--secondary-color, #03dac6); }
+
           .info {
             background: #f5f5f5;
             padding: 1rem;
             border-radius: 5px;
+            border: 1px solid #ddd;
           }
+          .test-result { margin-top: 10px; padding: 10px; border: 1px solid #eee; border-radius: 5px;}
+          .test-result h4 { margin-top: 0; margin-bottom: 5px; }
+          .status-message { padding: 5px; border-radius: 3px; }
+          .status-message.success { color: green; background-color: #e6ffe6; border: 1px solid green;}
+          .status-message.failure { color: red; background-color: #ffe6e6; border: 1px solid red;}
+          .status-message.not-run { color: orange; background-color: #fff0e0; border: 1px solid orange;}
         </style>
 
         <div>
           <button class="increment-button">Increment Count</button>
           <button class="reset-button">Reset Count</button>
+          <button class="run-this-test-button">Run This Test</button>
 
           <div class="info">
-            <p><strong>Tab ID:</strong> ${this.tabId}</p>
-            <p><strong>Synced Count:</strong> ${this.globalCount}</p>
+            <p><strong>Tab ID:</strong> ${tabId}</p>
+            <p><strong>Synced Count:</strong> ${globalCount}</p>
+          </div>
+
+          <div class="test-result">
+            <h4>Test Result:</h4>
+            <p class="status-message ${testResultStatusClass}">
+              ${this.state.testResult.message}
+            </p>
           </div>
         </div>
       `;
     }
+
+    async runTest() {
+      console.log('[ChannelSyncTestElement] Starting test...');
+      let allTestsPassed = true;
+      let messages = [];
+
+      // Helper for micro-delay
+      const delay = () => new Promise(resolve => setTimeout(resolve, 0));
+
+      // --- Initial State & Increment Test ---
+      console.log('[ChannelSyncTestElement] Testing: Initial State & Increment...');
+      this.resetAndSync();
+      await delay();
+
+      let initialCount = StateManager.get('channelCount');
+      if (initialCount === 0 && this.globalCount === 0) {
+        messages.push('Initial state (after reset) assertion passed.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: Initial state. StateManager: ${initialCount}, globalCount: ${this.globalCount}. Expected 0 for both.`);
+      }
+
+      this.incrementAndSync();
+      await delay();
+
+      let countAfterIncrementSM = StateManager.get('channelCount');
+      let countAfterIncrementLocal = this.globalCount;
+      if (countAfterIncrementSM === 1 && countAfterIncrementLocal === 1) {
+        messages.push('Increment assertion passed.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: After increment. StateManager: ${countAfterIncrementSM}, globalCount: ${countAfterIncrementLocal}. Expected 1 for both.`);
+      }
+
+      // --- Reset Test ---
+      console.log('[ChannelSyncTestElement] Testing: Reset...');
+      this.resetAndSync();
+      await delay();
+
+      let countAfterResetSM = StateManager.get('channelCount');
+      let countAfterResetLocal = this.globalCount;
+      if (countAfterResetSM === 0 && countAfterResetLocal === 0) {
+        messages.push('Reset assertion passed.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: After reset. StateManager: ${countAfterResetSM}, globalCount: ${countAfterResetLocal}. Expected 0 for both.`);
+      }
+
+      // --- Simulated onSyncMessage Test ---
+      console.log('[ChannelSyncTestElement] Testing: Simulated onSyncMessage...');
+      const simulatedSyncValue = 5;
+      this.onSyncMessage({ count: simulatedSyncValue });
+      await delay();
+
+      let countAfterSimulatedSyncSM = StateManager.get('channelCount');
+      let countAfterSimulatedSyncLocal = this.globalCount;
+
+      if (countAfterSimulatedSyncSM === simulatedSyncValue && countAfterSimulatedSyncLocal === simulatedSyncValue) {
+        messages.push(`Simulated onSyncMessage assertion passed (value: ${simulatedSyncValue}).`);
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: After simulated onSyncMessage. StateManager: ${countAfterSimulatedSyncSM}, globalCount: ${countAfterSimulatedSyncLocal}. Expected ${simulatedSyncValue} for both.`);
+      }
+
+      const result = {
+        success: allTestsPassed,
+        message: messages.join(' | ')
+      };
+      this.state.testResult = result; // Update state
+      this.updateUI(); // Manually trigger UI update
+
+      return result;
+    }
   }
 
-  customElements.define('channel-sync-test-element', ChannelSyncTestElement);
+  if (!customElements.get('channel-sync-test-element')) {
+    customElements.define('channel-sync-test-element', ChannelSyncTestElement);
+    console.log('[ChannelSyncTestElement] Custom element defined by ChannelSyncTestElementBuilder.');
+  }
+  return ChannelSyncTestElement;
 }
