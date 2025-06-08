@@ -47,6 +47,8 @@ export const Tests = {
     content: `
         <section class="tests-container">
         <h1>ElevateElement Core Feature Tests</h1>
+        <button id="run-all-tests-button" type="button" style="padding: 10px 15px; margin-bottom: 20px; background-color: #6200ea; color: white; border: none; border-radius: 5px; cursor: pointer;">Run All Tests</button>
+        <div id="all-tests-summary" style="margin-bottom: 20px; padding: 10px; border: 1px solid transparent;"></div>
 
         <div id="test-components-status" class="status-message"></div>
         
@@ -180,10 +182,80 @@ export const Tests = {
         // Additional setup actions for the Tests view
         console.log('[Tests View] Tests content rendered');
         
-        // Verify all components were properly defined
+        const runAllButton = document.getElementById('run-all-tests-button');
+        const allTestsSummaryDiv = document.getElementById('all-tests-summary');
+
+        if (runAllButton && allTestsSummaryDiv) {
+            runAllButton.addEventListener('click', async () => {
+                allTestsSummaryDiv.textContent = 'Running all tests... Please wait.';
+                allTestsSummaryDiv.style.borderColor = '#ccc'; // Indicate activity
+                allTestsSummaryDiv.style.color = '#333';
+                allTestsSummaryDiv.style.backgroundColor = '#f0f0f0';
+
+                console.log('[RunAllTests] Clicked - Starting all tests.');
+                // These are the tags for the components that have runTest and UI updates
+                const testElementTags = [
+                    'error-test-element',
+                    'post-test-element', // Assuming standard tag name
+                    'manual-event-element',
+                    'event-bridge-element',
+                    'channel-sync-test-element',
+                    'retry-error-element',
+                    'config-display-element'
+                ];
+
+                let testsFoundAndRunnable = 0;
+                let testsSuccessfullyTriggered = 0;
+                // This count is just for triggering, individual components show pass/fail
+
+                for (const tag of testElementTags) {
+                    const element = document.querySelector(tag); // Query within the rendered view
+                    if (element) {
+                        if (typeof element.runTest === 'function') {
+                            testsFoundAndRunnable++;
+                            console.log(`[RunAllTests] Attempting to run test for ${tag}`);
+                            try {
+                                await element.runTest(); // runTest updates its own UI
+                                testsSuccessfullyTriggered++;
+                                console.log(`[RunAllTests] Successfully triggered test for ${tag}`);
+                            } catch (e) {
+                                console.error(`[RunAllTests] Error triggering test for ${tag}:`, e);
+                                // The individual component should display its own error if runTest fails internally.
+                                // This catch is for errors in the process of calling runTest itself.
+                            }
+                        } else {
+                            console.warn(`[RunAllTests] Test element ${tag} found, but runTest method is missing.`);
+                        }
+                    } else {
+                        console.warn(`[RunAllTests] Test element ${tag} not found in the DOM.`);
+                    }
+                }
+
+                let summaryMessage = `Triggered ${testsSuccessfullyTriggered} of ${testsFoundAndRunnable} found testable components. `;
+                summaryMessage += `(Total query tags: ${testElementTags.length}). Check individual components for detailed pass/fail results.`;
+
+                allTestsSummaryDiv.textContent = summaryMessage;
+                if (testsFoundAndRunnable > 0 && testsSuccessfullyTriggered === testsFoundAndRunnable) {
+                    allTestsSummaryDiv.style.borderColor = 'green';
+                    allTestsSummaryDiv.style.backgroundColor = '#e6ffe6';
+                } else if (testsFoundAndRunnable > 0 && testsSuccessfullyTriggered > 0) {
+                    allTestsSummaryDiv.style.borderColor = 'orange';
+                     allTestsSummaryDiv.style.backgroundColor = '#fff0e0';
+                } else {
+                    allTestsSummaryDiv.style.borderColor = 'red';
+                    allTestsSummaryDiv.style.backgroundColor = '#ffe6e6';
+                }
+                console.log(`[RunAllTests] Summary: ${summaryMessage}`);
+            });
+        } else {
+            if (!runAllButton) console.error('[Tests View] "Run All Tests" button (id: run-all-tests-button) not found.');
+            if (!allTestsSummaryDiv) console.error('[Tests View] "All Tests Summary" div (id: all-tests-summary) not found.');
+        }
+
+        // Verify all components were properly defined (existing logic)
         setTimeout(() => {
           const allDefined = Object.values(testComponents).every(Boolean);
-          console.log('[Tests View] All components defined correctly');
+          console.log('[Tests View] All components defined correctly status:', allDefined);
         }, 500);
         
         return true;

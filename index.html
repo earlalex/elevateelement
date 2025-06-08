@@ -10,15 +10,31 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&family=Work+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Import Map for Lit and related packages -->
+  <script type="importmap">
+  {
+    "imports": {
+      "lit": "https://cdn.jsdelivr.net/npm/lit@3.1.2/index.js",
+      "lit/": "https://cdn.jsdelivr.net/npm/lit@3.1.2/",
+      "@lit/reactive-element": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2.0.4/reactive-element.js",
+      "@lit/reactive-element/": "https://cdn.jsdelivr.net/npm/@lit/reactive-element@2.0.4/",
+      "lit-html": "https://cdn.jsdelivr.net/npm/lit-html@3.1.2/lit-html.js",
+      "lit-html/": "https://cdn.jsdelivr.net/npm/lit-html@3.1.2/",
+      "lit-element": "https://cdn.jsdelivr.net/npm/lit-element@4.0.4/lit-element.js",
+      "lit-element/": "https://cdn.jsdelivr.net/npm/lit-element@4.0.4/"
+    }
+  }
+  </script>
   
   <!-- Framework Styles - Load theme.css which imports all required styles -->
-  <link rel="stylesheet" href="/elevateElement/css/theme.css">
+  <link rel="stylesheet" href="elevateElement/css/theme.css">
 </head>
 
 <body data-elevateElement="app">
   <!-- Menu state management script -->
   <script type="module">
-    import { initializeMenuState, handleNavigation } from '/elevateElement/features/core/menuState.js';
+    import { initializeMenuState, handleNavigation } from './elevateElement/features/core/menuState.js';
     
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', initializeMenuState);
@@ -67,7 +83,7 @@
   </elevate-element>
 
   <!-- Core Script -->
-  <script src="/elevateElement/elevateElement.js" type="module"></script>
+  <script src="elevateElement/elevateElement.js" type="module"></script>
   
   <!-- Global Menu Controller -->
   <script type="module">
