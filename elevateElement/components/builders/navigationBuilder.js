@@ -184,7 +184,17 @@ export async function buildDynamicNavigation(ElevateElement) {
     
     menuHtml += '</menu>';
     
-        // Insert the menu HTML depending on container structure    const navContainer = navRoot.querySelector('.nav-container');    if (navContainer && navContainer.querySelector('.hamburger-button')) {      console.log('[NavigationBuilder] Inserting menu into existing nav container with hamburger');      navContainer.insertAdjacentHTML('beforeend', menuHtml);    } else {      // Standard insertion if no container or hamburger      navRoot.innerHTML = menuHtml;    }        // Find all links and convert to route-link elements if needed    const menuElement = navRoot.querySelector('#main-navigation-menu');
+    // Insert the menu HTML depending on container structure
+    const navContainer = navRoot.querySelector('.nav-container');
+    if (navContainer && navContainer.querySelector('.hamburger-button')) {
+      console.log('[NavigationBuilder] Inserting menu into existing nav container with hamburger');
+      navContainer.insertAdjacentHTML('beforeend', menuHtml);
+    } else {
+      // Standard insertion if no container or hamburger
+      navRoot.innerHTML = menuHtml;
+    }
+    // Find all links and convert to route-link elements if needed
+    const menuElement = navRoot.querySelector('#main-navigation-menu');
     
     if (menuElement) {
       // Add click handlers to links
