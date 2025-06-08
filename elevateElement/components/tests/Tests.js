@@ -30,10 +30,6 @@ export async function testElevateElement(ElevateElement) {
     let totalTests = 0;
     let passedCount = 0;
 
-    console.log('[Test Runner] Starting test execution...');
-    let totalTests = 0;
-    let passedCount = 0;
-
     // Define all test elements by calling their builders
     // The ElevateElement parameter is passed to each builder.
     ErrorTestElementBuilder(ElevateElement);
