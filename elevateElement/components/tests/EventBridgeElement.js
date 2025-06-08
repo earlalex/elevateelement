@@ -13,10 +13,13 @@ export function EventBridgeElementBuilder(ElevateElement) {
       this.state = {
         internalMessage: '',
         globalMessage: '',
-        eventCount: 0
+        eventCount: 0,
+        testResult: { success: null, message: 'Test not run yet.' }
       };
 
       // Bind global event handler early
+      // bind runTest for the event handler
+      this._handleRunThisTest = this._handleRunThisTest.bind(this);
       this._onGlobalEvent = this._onGlobalEvent.bind(this);
     }
 
@@ -35,9 +38,20 @@ export function EventBridgeElementBuilder(ElevateElement) {
       window.addEventListener('bridge-event', this._onGlobalEvent);
     }
 
+    async _handleRunThisTest() {
+      try {
+        await this.runTest();
+      } catch (e) {
+        this.state.testResult = { success: false, message: `Test execution error: ${e.message}` };
+        this.updateUI(); // Manually trigger UI update as setState is not used here for testResult
+        console.error('[EventBridgeElement] Error during runTest from button:', e);
+      }
+    }
+
     attachEventHandlers() {
       BaseComponentUtils.attachEventHandlers(this, {
-        '.emit-button': this.sendEvent
+        '.emit-button': this.sendEvent,
+        '.run-this-test-button': this._handleRunThisTest
       });
     }
 
@@ -71,15 +85,76 @@ export function EventBridgeElementBuilder(ElevateElement) {
         composed: true
       });
       window.dispatchEvent(nativeEvent);
+      // No updateUI() here, runTest will call it after assertions if needed
+    }
+
+    async runTest() {
+      console.log('[EventBridgeElement] Starting test...');
+      let allTestsPassed = true;
+      let messages = [];
+
+      this.sendEvent(); // This will increment eventCount and set messages via listeners
+
+      const currentEventCount = this.state.eventCount;
+      const expectedMessage = `Hello from Bridge Event! (${currentEventCount})`;
+
+      // Wait for event propagation and setState calls within listeners
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Assertion for internalMessage
+      if (this.state.internalMessage === expectedMessage) {
+        messages.push('Internal message assertion passed.');
+        console.log('[EventBridgeElement] Assertion Passed: Internal message is correct.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: Internal message is "${this.state.internalMessage}", expected "${expectedMessage}".`);
+        console.error('[EventBridgeElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      // Assertion for globalMessage
+      if (this.state.globalMessage === expectedMessage) {
+        messages.push('Global message assertion passed.');
+        console.log('[EventBridgeElement] Assertion Passed: Global message is correct.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: Global message is "${this.state.globalMessage}", expected "${expectedMessage}".`);
+        console.error('[EventBridgeElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      // Assertion for eventCount
+      if (this.state.eventCount === currentEventCount && currentEventCount > 0) {
+        messages.push(`Event count assertion passed (count: ${currentEventCount}).`);
+        console.log('[EventBridgeElement] Assertion Passed: Event count is correct.');
+      } else {
+        allTestsPassed = false;
+        messages.push(`Assertion failed: Event count is ${this.state.eventCount}, expected ${currentEventCount} (and > 0).`);
+        console.error('[EventBridgeElement] Assertion Failed:', messages[messages.length - 1]);
+      }
+
+      const result = {
+        success: allTestsPassed,
+        message: messages.join(' ')
+      };
+      this.state.testResult = result; // Set state directly
+      this.updateUI(); // Manually trigger UI update
+
+      return result; // Still return for programmatic use
     }
 
     template() {
+      const testResultStatusClass = this.state.testResult.success === true
+        ? 'success'
+        : this.state.testResult.success === false
+          ? 'failure'
+          : 'not-run';
+
       return `
         <div class="event-bridge-container">
           <h3>Event Bridge Test</h3>
           <p>This component tests the event system by emitting and listening to events.</p>
           
           <button class="emit-button" type="button">Emit Event</button>
+          <button class="run-this-test-button" type="button">Run This Test</button>
           
           <div class="event-results">
             <div class="result-item ${this.state.internalMessage ? 'active' : ''}">
@@ -92,12 +167,20 @@ export function EventBridgeElementBuilder(ElevateElement) {
               <div class="message">${this.state.globalMessage || '(No events received yet)'}</div>
             </div>
           </div>
+
+          <div class="test-result">
+            <h4>Test Result:</h4>
+            <p class="status-message ${testResultStatusClass}">
+              ${this.state.testResult.message}
+            </p>
+          </div>
         </div>
       `;
     }
 
     styles() {
-      return `
+      // Combining existing styles with new test result styles
+      const existingStyles = `
         .event-bridge-container {
           padding: var(--space-lg);
           margin: var(--space-md) 0;
@@ -114,7 +197,7 @@ export function EventBridgeElementBuilder(ElevateElement) {
           box-shadow: var(--elevation-2);
         }
         
-        h3 {
+        h3, .test-result h4 { /* Apply to h3 and test-result h4 */
           color: var(--color-on-surface-high);
           margin-top: 0;
           margin-bottom: var(--space-sm);
@@ -123,7 +206,7 @@ export function EventBridgeElementBuilder(ElevateElement) {
           font-family: var(--font-display);
         }
         
-        h4 {
+        h4 { /* Original h4 for result-item */
           color: var(--color-on-surface-high);
           margin-top: 0;
           margin-bottom: var(--space-xs);
@@ -136,14 +219,12 @@ export function EventBridgeElementBuilder(ElevateElement) {
           color: var(--color-on-surface-medium);
         }
         
-        .emit-button {
+        .emit-button, .run-this-test-button { /* Shared button styles */
           position: relative;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           padding: var(--space-xs) var(--space-md);
-          background-color: var(--color-primary);
-          color: var(--color-on-primary);
           border: none;
           border-radius: var(--radius-md);
           font-family: var(--font-sans);
@@ -155,9 +236,20 @@ export function EventBridgeElementBuilder(ElevateElement) {
                       box-shadow var(--duration-short) var(--easing-standard),
                       transform var(--duration-short) var(--easing-standard);
           box-shadow: var(--elevation-1);
-          margin-bottom: var(--space-lg);
+          margin-bottom: var(--space-lg); /* Keep for emit-button, adjust if needed for run-this-test */
+          margin-right: var(--space-sm); /* Space between buttons */
           min-height: 44px;
           z-index: 1;
+        }
+
+        .emit-button {
+          background-color: var(--color-primary);
+          color: var(--color-on-primary);
+        }
+        .run-this-test-button {
+          background-color: var(--color-secondary); /* Example */
+          color: var(--color-on-secondary);
+           margin-bottom: var(--space-md); /* Align margin with other buttons if desired */
         }
         
         .emit-button:hover {
@@ -165,8 +257,13 @@ export function EventBridgeElementBuilder(ElevateElement) {
           box-shadow: var(--elevation-2);
           transform: translateY(-2px);
         }
+        .run-this-test-button:hover {
+          background-color: var(--color-secondary-dark); /* Example */
+          box-shadow: var(--elevation-2);
+          transform: translateY(-2px);
+        }
         
-        .emit-button:active {
+        .emit-button:active, .run-this-test-button:active {
           transform: translateY(0);
           box-shadow: var(--elevation-1);
         }
@@ -197,15 +294,21 @@ export function EventBridgeElementBuilder(ElevateElement) {
           font-family: var(--font-mono);
           font-size: var(--font-sm);
         }
+
+        .test-result { margin-top: 10px; padding: 10px; border: 1px solid #eee; border-radius: 5px;}
+        .status-message { padding: 5px; border-radius: 3px; }
+        .status-message.success { color: green; background-color: #e6ffe6; border: 1px solid green;}
+        .status-message.failure { color: red; background-color: #ffe6e6; border: 1px solid red;}
+        .status-message.not-run { color: orange; background-color: #fff0e0; border: 1px solid orange;}
       `;
+      return existingStyles;
     }
   }
 
   // Define the element if it doesn't exist
   if (!customElements.get('event-bridge-element')) {
     customElements.define('event-bridge-element', EventBridgeElement);
-    console.log('[EventBridgeElement] Custom element defined');
+    console.log('[EventBridgeElement] Custom element defined by EventBridgeElementBuilder.');
   }
-  
   return EventBridgeElement;
 }
