@@ -91,6 +91,11 @@ export const Tests = {
             <h2>Layout Test Element (CSS Grid and Flex Layouts)</h2>
             <layout-test-element></layout-test-element>
         </section>
+
+        <section class="test-section">
+            <h2>Config Display Test Element (Configuration Data Verification)</h2>
+            <config-display-element></config-display-element>
+        </section>
         </section>
 
         <style>

@@ -12,6 +12,8 @@ export {
 // Export renderView directly from the enhanced version
 export { renderViewEnhanced as renderView };
 
+let currentViewObserver = null;
+
 /**
  * Creates an observable property
  * @param {Object} target - The target object
@@ -204,8 +206,15 @@ export const renderViewEnhanced = async (view, viewName) => {
     
     console.log(`[${viewName}] Content rendered to DOM`);
     
+    // Disconnect previous observer if it exists
+    if (currentViewObserver) {
+      currentViewObserver.disconnect();
+      currentViewObserver = null;
+      // console.log(`[RenderViewEnhanced] Disconnected previous observer for ${viewName}`);
+    }
+
     // Create mutation observer to detect if our content gets removed
-    const observer = new MutationObserver((mutations) => {
+    const newObserver = new MutationObserver((mutations) => {
       // Check if our container was removed
       if (!main.contains(contentContainer) && view.contentRendered) {
         console.warn(`[${viewName}] Content container was unexpectedly removed, restoring...`);
@@ -221,7 +230,8 @@ export const renderViewEnhanced = async (view, viewName) => {
     });
     
     // Start observing
-    observer.observe(main, { childList: true });
+    newObserver.observe(main, { childList: true });
+    currentViewObserver = newObserver;
     
     return true;
   } catch (error) {

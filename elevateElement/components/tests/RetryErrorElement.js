@@ -144,7 +144,7 @@ export function RetryErrorElementBuilder(ElevateElementClass) {
       async runTest() {
         console.log('[RetryErrorElement] Starting test (error path)...');
         await this.fetchData();
-
+        
         let testResultObj = { success: false, message: '' };
         let assertionsPassed = true;
         let assertionMessages = [];
