@@ -266,7 +266,7 @@ export async function buildDynamicNavigation(ElevateElement) {
         link.setAttribute('tabindex', '0');
         link.setAttribute('aria-label', `Navigate to ${link.textContent.trim()}`);
       });
-    }
+    // REMOVED MISPLACED BRACE from here: }
     
     // Force repaint to ensure elements are rendered
     navRoot.style.opacity = '0.99';
