@@ -315,6 +315,7 @@ class InternalRouter {
         // The current logic makes hash paths relative to the application's logical root.
 
         const newHash = `#${hashPath}`;
+
         if (window.location.hash !== newHash) {
             window.location.hash = newHash;
         }
