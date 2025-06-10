@@ -6,8 +6,33 @@ import { Home } from '../../views/Home.js';
 import { Tests } from '../../views/Tests.js';
 const allViews = [Home,About,Contact,Tests,Config]
 
+function getBasePath() {
+  const mainScriptTag = document.querySelector('script[src*="elevateElement.js"][type="module"]');
+  let basePath = '/';
+
+  if (mainScriptTag && mainScriptTag.src) {
+    const mainScriptUrl = new URL(mainScriptTag.src, window.location.href); // Ensure it's absolute
+    const pathName = mainScriptUrl.pathname;
+    const scriptNamePart = 'elevateElement/elevateElement.js';
+
+    if (pathName.includes(scriptNamePart)) { // Use includes for flexibility if path has params
+      basePath = pathName.substring(0, pathName.indexOf(scriptNamePart));
+    }
+  } else {
+    console.warn('[Router-BasePath] Could not reliably determine base path from script tag. Falling back to root "/". Configure manually if in a subfolder and experiencing issues.');
+  }
+
+  // Ensure basePath always starts and ends with a slash if it's not just "/"
+  if (!basePath.startsWith('/')) basePath = '/' + basePath;
+  if (basePath.length > 1 && !basePath.endsWith('/')) basePath += '/';
+
+  // console.log('[Router-BasePath] Using base path:', basePath);
+  return basePath;
+}
+
 class InternalRouter {
   constructor() {
+    this.basePath = getBasePath();
     this.routes = {};
     this.subscribers = new Set();
     this.cache = new Map();
@@ -79,10 +104,29 @@ class InternalRouter {
   }
 
   parsePath() {
+    let fullPath;
     if (this.useHistory) {
-      return window.location.pathname || '/';
+      fullPath = decodeURI(window.location.pathname);
     } else {
-      return window.location.hash.replace(/^#/, '') || '/';
+      fullPath = decodeURI(window.location.hash.replace(/^#/, '')) || '/';
+      if (!fullPath.startsWith('/')) {
+        fullPath = '/' + fullPath;
+      }
+    }
+
+    if (fullPath.startsWith(this.basePath)) {
+      let appPath = fullPath.substring(this.basePath.length);
+      if (!appPath.startsWith('/')) {
+        appPath = '/' + appPath;
+      }
+      // console.log(`[Router] parsePath: fullPath="${fullPath}", basePath="${this.basePath}", appPath="${appPath}"`);
+      return appPath;
+    } else {
+      // This case should ideally not happen if basePath is derived correctly from the entry point.
+      // It might indicate user navigated outside the app's known base.
+      // For robustness, return the full path, but log a warning.
+      console.warn(`[Router] parsePath: Current path "${fullPath}" does not start with base path "${this.basePath}". Using full path.`);
+      return fullPath;
     }
   }
 
@@ -149,13 +193,16 @@ class InternalRouter {
       this.isNavigating = false;
     };
 
+    // Path variable declared here to be accessible in catch block
+    let path;
     try {
-      const path = this.parsePath();
+      path = this.parsePath(); // Use the new base-path aware parsePath
       const match = this.matchRoute(path);
       const main = document.querySelector('main') || document.getElementById('main');
       
       if (!main) {
         console.error('Router: No main element found');
+        this.isNavigating = false; // Reset flag if main isn't found
         return;
       }
 
@@ -165,25 +212,13 @@ class InternalRouter {
         if (result instanceof Promise) {
           result
             .then(success => {
-              // Remove loading indicator if it exists
               const loadingIndicator = main.querySelector('.route-loading-indicator');
-              if (loadingIndicator) {
-                loadingIndicator.remove();
-              }
-              
-              // Double check content is visible after a short delay
+              if (loadingIndicator) loadingIndicator.remove();
               setTimeout(() => {
                 if (main.children.length === 0) {
                   console.warn('Router: No content rendered after route handler completed');
-                  main.innerHTML = `
-                    <div style="padding:20px;">
-                      <h2 style="color:#6200ea;">Content Not Rendered</h2>
-                      <p>The view handler succeeded but did not render any content.</p>
-                    </div>
-                  `;
+                  main.innerHTML = `<div style="padding:20px;"><h2 style="color:#6200ea;">Content Not Rendered</h2><p>The view handler succeeded but did not render any content.</p></div>`;
                 }
-                
-                // Force visibility on all direct children
                 Array.from(main.children).forEach(child => {
                   child.style.display = 'block';
                   child.style.visibility = 'visible';
@@ -193,24 +228,12 @@ class InternalRouter {
             })
             .catch(error => {
               console.error(`Router: Error loading route ${path}:`, error);
-              // Provide error message to user
-              main.innerHTML = `
-                <div style="padding: 20px; background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; border-radius: 4px; margin: 20px;">
-                  <h2>Error Loading Route</h2>
-                  <p>${error.message || 'Unknown error'}</p>
-                  <button onclick="window.location.reload()">Reload Page</button>
-                </div>
-              `;
+              main.innerHTML = `<div style="padding: 20px; background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; border-radius: 4px; margin: 20px;"><h2>Error Loading Route</h2><p>${error.message || 'Unknown error'}</p><button onclick="window.location.reload()">Reload Page</button></div>`;
             })
             .finally(resetNavigationState);
         } else {
-          // For synchronous handlers, remove loading indicator
           const loadingIndicator = main.querySelector('.route-loading-indicator');
-          if (loadingIndicator) {
-            loadingIndicator.remove();
-          }
-          
-          // Force visibility for a sync handler too
+          if (loadingIndicator) loadingIndicator.remove();
           setTimeout(() => {
             Array.from(main.children).forEach(child => {
               child.style.display = 'block';
@@ -218,22 +241,86 @@ class InternalRouter {
               child.style.opacity = '1';
             });
           }, 100);
-          
           this.isNavigating = false;
         }
-        
         this.notifySubscribers(path, match.params);
-      } else {  // <-- Move this else block here
+      } else {
         console.warn(`Router: No route matched for ${path}`);
-        this.notifySubscribers(path, {});
+        this.notifySubscribers(path, {}); // Notify with empty params for 404 listeners
         this.showErrorModal(`Page not found: ${path}`);
         this.isNavigating = false;
       }
     } catch (error) {
-      console.error(`Router: Error handling route ${path}:`, error);
+      console.error(`Router: Error handling route ${path !== undefined ? path : '(unknown path)'}:`, error);
       this.isNavigating = false;
     }
 }
+
+    updateURL(internalPath) {
+      // internalPath is app-relative, e.g., '/', '/about'
+      let displayPath;
+      if (this.basePath === '/') {
+        displayPath = internalPath;
+      } else {
+        // Ensure basePath ends with / (it should from getBasePath)
+        // Ensure internalPath starts with / (it should)
+        if (internalPath === '/') {
+          // If internal path is root, display path is just the base path (e.g., /myrepo/)
+          displayPath = this.basePath;
+        } else {
+          // If internal path is /about, display path is /myrepo/about
+          // this.basePath already ends with a slash. internalPath starts with one.
+          displayPath = this.basePath + internalPath.substring(1);
+        }
+      }
+
+      // Normalize: remove trailing slash if not root, ensure leading slash
+      if (!displayPath.startsWith('/')) displayPath = '/' + displayPath;
+      if (displayPath !== '/' && displayPath.endsWith('/')) {
+        displayPath = displayPath.slice(0, -1);
+      }
+      // If displayPath became empty (e.g. basePath was '/' and internalPath was '/'), set to '/'
+      if (displayPath === '') displayPath = '/';
+
+      const currentBrowserPath = this.useHistory
+                                  ? decodeURI(window.location.pathname)
+                                  : (decodeURI(window.location.hash.replace(/^#/, '')) || '/');
+
+      // Normalize currentBrowserPath for comparison, especially for root hash
+      let normalizedCurrentBrowserPath = currentBrowserPath;
+      if (!this.useHistory && (currentBrowserPath === '' || currentBrowserPath === '/')) {
+         // Default hash path is often just "#" or "#/", representing app's root
+         // If internalPath is also root, then displayPath (after hash logic) should match this.
+      } else if (!currentBrowserPath.startsWith('/')) {
+        normalizedCurrentBrowserPath = '/' + normalizedCurrentBrowserPath;
+      }
+
+
+      if (normalizedCurrentBrowserPath === displayPath && this.currentPath === internalPath) {
+         // console.log(`[Router] updateURL: Path ${displayPath} already matches browser and internal state.`);
+         return;
+      }
+
+      if (this.useHistory) {
+        window.history.pushState({ path: internalPath }, '', displayPath);
+      } else {
+        // For hash mode, the path after # should be the internalPath, typically without leading slash
+        // unless it's just the root.
+        let hashPath = internalPath.startsWith('/') ? internalPath.substring(1) : internalPath;
+        if (internalPath === '/') hashPath = '/'; // For root, often represented as #/ or just #
+
+        // If basePath is not '/', and we want hashes like #/subfolder/about, then:
+        // hashPath = displayPath.startsWith('/') ? displayPath.substring(1) : displayPath;
+        // However, simpler hashes like #/about are more common.
+        // The current logic makes hash paths relative to the application's logical root.
+
+        const newHash = `#${hashPath}`;
+        if (window.location.hash !== newHash) {
+            window.location.hash = newHash;
+        }
+      }
+      // console.log(`[Router] Browser URL update attempted for display: ${displayPath} (internal: ${internalPath})`);
+    }
 
   navigate(path) {
     try {
@@ -467,12 +554,11 @@ class InternalRouter {
       const menuElements = document.querySelectorAll(selector);
       menuElements.forEach(menu => {
         if (menu) {
-          // Remove active class
+          // Remove active class - this should trigger CSS to hide the menu
           menu.classList.remove('active');
-          // Force hide with multiple important flags
-          menu.style.cssText += 'display: none !important; opacity: 0 !important; visibility: hidden !important;';
           // Remove other potential active classes
           menu.classList.remove('nav-open');
+          // Avoid direct style manipulation for display:none here
         }
       });
     });
@@ -502,12 +588,15 @@ class InternalRouter {
     // Force CSS to be recomputed
     if (typeof requestAnimationFrame === 'function') {
       requestAnimationFrame(() => {
-        // Double-check menus are closed after layout
+        // Double-check menus are closed after layout by ensuring classes are removed
+        // No direct style manipulation here, rely on CSS rules via classes
         menuSelectors.forEach(selector => {
           const menuElements = document.querySelectorAll(selector);
           menuElements.forEach(menu => {
-            if (menu) {
-              menu.style.cssText += 'display: none !important;';
+            if (menu && !menu.classList.contains('active')) {
+              // If it's still not hidden by CSS, this is a deeper issue
+              // but we avoid forcing display:none from JS here.
+              // console.log('[Router] Fallback closeMenu: menu still visible after class removal in rAF for selector:', selector);
             }
           });
         });
