@@ -207,7 +207,7 @@ export async function buildDynamicNavigation(ElevateElement) {
     });
     
     menuElement.innerHTML = menuItemsHtml; // Populate the menu element
-    
+
     // At this point, menuElement and hamburgerButton are guaranteed to exist in navRoot.
     // The subsequent logic for attaching event listeners should use these variables directly.
     // The existing code re-queries for hamburgerButton and menuElement.querySelectorAll('.nav-link'),
