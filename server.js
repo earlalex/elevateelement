@@ -4,7 +4,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 5500;
+const PORT = 3000;
 const MIME_TYPES = {
   '.html': 'text/html',
   '.js': 'text/javascript',
@@ -18,7 +18,8 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  console.log(`${req.method} ${req.url}`);
+  const logEntry = `${new Date().toISOString()} - ${req.method} ${req.url}`;
+  console.log(logEntry); // Log to console (which is redirected to server.log)
 
   // Handle /htmx-current-time endpoint
   if (req.url === '/htmx-current-time') {

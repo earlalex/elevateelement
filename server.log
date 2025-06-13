@@ -1,0 +1,5 @@
+Server running at http://localhost:3000/
+Press Ctrl+C to stop the server
+2025-06-13T16:08:33.103Z - GET /
+2025-06-13T16:08:33.121Z - GET /tests
+2025-06-13T16:08:33.135Z - GET /about
