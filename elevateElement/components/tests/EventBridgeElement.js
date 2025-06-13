@@ -27,15 +27,33 @@ export function EventBridgeElementBuilder(ElevateElement) {
       super.connectedCallback();
       console.log('[EventBridgeElement] connected');
 
-      // Attach internal event listener
-      this.on('bridge-event', (detail) => {
-        console.log('[EventBridgeElement] Internal event caught:', detail);
-        this.state.internalMessage = detail.message;
-        this.updateUI();
-      });
+      // Initial render
+      this.updateUI();
+      // Attach button listeners
+      this.attachEventHandlers();
+
+      // Attach internal event listener (this.on relies on BaseComponent)
+      if (typeof this.on === 'function') {
+        this.on('bridge-event', (detail) => {
+          console.log('[EventBridgeElement] Internal event caught:', detail);
+          this.state.internalMessage = detail.message;
+          this.updateUI();
+          this.attachEventHandlers(); // Re-attach button listeners
+        });
+      } else {
+        console.warn('[EventBridgeElement] this.on is not a function. Internal events may not work.');
+      }
 
       // Attach global event listener
       window.addEventListener('bridge-event', this._onGlobalEvent);
+    }
+
+    updateUI() {
+      if (this.shadowRoot && typeof this.template === 'function') {
+        this.shadowRoot.innerHTML = this.template();
+      } else {
+        console.warn('[EventBridgeElement] Cannot update UI: shadowRoot or template missing.');
+      }
     }
 
     async _handleRunThisTest() {
@@ -43,20 +61,53 @@ export function EventBridgeElementBuilder(ElevateElement) {
         await this.runTest();
       } catch (e) {
         this.state.testResult = { success: false, message: `Test execution error: ${e.message}` };
-        this.updateUI(); // Manually trigger UI update as setState is not used here for testResult
+        this.updateUI();
+        this.attachEventHandlers(); // Re-attach button listeners
         console.error('[EventBridgeElement] Error during runTest from button:', e);
       }
     }
 
     attachEventHandlers() {
-      BaseComponentUtils.attachEventHandlers(this, {
-        '.emit-button': this.sendEvent,
-        '.run-this-test-button': this._handleRunThisTest
-      });
+      if (!this.shadowRoot) return;
+
+      // Remove previous listeners first
+      const emitButton = this.shadowRoot.querySelector('.emit-button');
+      if (emitButton && this._boundSendEvent) {
+        emitButton.removeEventListener('click', this._boundSendEvent);
+      }
+      const runTestButton = this.shadowRoot.querySelector('.run-this-test-button');
+      if (runTestButton && this._boundHandleRunThisTest) { // _handleRunThisTest is already bound in constructor
+        runTestButton.removeEventListener('click', this._boundHandleRunThisTest);
+      }
+
+      // Bind methods
+      this._boundSendEvent = this.sendEvent.bind(this);
+      // _handleRunThisTest is already bound in constructor
+
+      // Attach new listeners
+      if (emitButton) {
+        emitButton.addEventListener('click', this._boundSendEvent);
+      }
+      if (runTestButton) {
+        runTestButton.addEventListener('click', this._boundHandleRunThisTest);
+      }
+    }
+
+    removeEventListeners() {
+      if (!this.shadowRoot) return;
+      const emitButton = this.shadowRoot.querySelector('.emit-button');
+      if (emitButton && this._boundSendEvent) {
+        emitButton.removeEventListener('click', this._boundSendEvent);
+      }
+      const runTestButton = this.shadowRoot.querySelector('.run-this-test-button');
+      if (runTestButton && this._boundHandleRunThisTest) {
+        runTestButton.removeEventListener('click', this._boundHandleRunThisTest);
+      }
     }
 
     disconnectedCallback() {
       window.removeEventListener('bridge-event', this._onGlobalEvent);
+      this.removeEventListeners(); // Remove manually attached listeners
       super.disconnectedCallback();
     }
 
@@ -64,6 +115,7 @@ export function EventBridgeElementBuilder(ElevateElement) {
       console.log('[EventBridgeElement] Global event caught:', event.detail);
       this.state.globalMessage = event.detail.message;
       this.updateUI();
+      this.attachEventHandlers(); // Re-attach button listeners
     }
 
     sendEvent() {
@@ -135,10 +187,10 @@ export function EventBridgeElementBuilder(ElevateElement) {
         success: allTestsPassed,
         message: messages.join(' ')
       };
-      this.state.testResult = result; // Set state directly
-      this.updateUI(); // Manually trigger UI update
-
-      return result; // Still return for programmatic use
+      this.state.testResult = result;
+      this.updateUI();
+      this.attachEventHandlers(); // Re-attach button listeners
+      return result;
     }
 
     template() {

@@ -8,13 +8,18 @@ export function LayoutTestElementBuilder() {
       super('layout-test-element');
       
       this.state = {
-        activeTab: 'grid'
+        activeTab: 'grid',
+        testResult: { success: null, message: 'Test not run yet.' }
       };
       
       // Create shadow root only if it doesn't exist
       if (!this.shadowRoot) {
         this.attachShadow({ mode: 'open' });
       }
+
+      this._boundSetActiveGrid = () => this.setActiveTab('grid');
+      this._boundSetActiveFlex = () => this.setActiveTab('flex');
+      this._boundRunTest = this.runTest.bind(this);
     }
 
     connectedCallback() {
@@ -36,35 +41,85 @@ export function LayoutTestElementBuilder() {
     }
     
     addEventListeners() {
+      if (!this.shadowRoot) return;
       const gridTab = this.shadowRoot.querySelector('#grid-tab');
       const flexTab = this.shadowRoot.querySelector('#flex-tab');
+      const runTestButton = this.shadowRoot.querySelector('#run-layout-test');
       
       if (gridTab) {
-        gridTab.addEventListener('click', () => this.setActiveTab('grid'));
+        gridTab.addEventListener('click', this._boundSetActiveGrid);
       }
       
       if (flexTab) {
-        flexTab.addEventListener('click', () => this.setActiveTab('flex'));
+        flexTab.addEventListener('click', this._boundSetActiveFlex);
+      }
+
+      if (runTestButton) {
+        runTestButton.addEventListener('click', this._boundRunTest);
       }
     }
     
     removeEventListeners() {
+      if (!this.shadowRoot) return;
       const gridTab = this.shadowRoot.querySelector('#grid-tab');
       const flexTab = this.shadowRoot.querySelector('#flex-tab');
+      const runTestButton = this.shadowRoot.querySelector('#run-layout-test');
       
       if (gridTab) {
-        gridTab.removeEventListener('click', () => this.setActiveTab('grid'));
+        gridTab.removeEventListener('click', this._boundSetActiveGrid);
       }
       
       if (flexTab) {
-        flexTab.removeEventListener('click', () => this.setActiveTab('flex'));
+        flexTab.removeEventListener('click', this._boundSetActiveFlex);
+      }
+
+      if (runTestButton) {
+        runTestButton.removeEventListener('click', this._boundRunTest);
       }
     }
     
     setActiveTab(tab) {
       this.state.activeTab = tab;
       this.shadowRoot.innerHTML = this.render();
+      this.addEventListeners(); // Re-attach listeners after re-render
+    }
+
+    async runTest() {
+      console.log('[LayoutTestElement] Starting test...');
+      let allTestsPassed = true;
+      let messages = [];
+
+      // Test Grid Layout
+      this.setActiveTab('grid');
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const gridContainer = this.shadowRoot.querySelector('.grid-container');
+      if (gridContainer) {
+        messages.push('Grid container found when grid tab is active.');
+      } else {
+        allTestsPassed = false;
+        messages.push('Assertion failed: Grid container NOT found when grid tab is active.');
+      }
+
+      // Test Flex Layout
+      this.setActiveTab('flex');
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const flexContainer = this.shadowRoot.querySelector('.flex-container');
+      if (flexContainer) {
+        messages.push('Flex container found when flex tab is active.');
+      } else {
+        allTestsPassed = false;
+        messages.push('Assertion failed: Flex container NOT found when flex tab is active.');
+      }
+
+      this.state.testResult = {
+        success: allTestsPassed,
+        message: messages.join(' | ')
+      };
+
+      this.shadowRoot.innerHTML = this.render();
       this.addEventListeners();
+
+      return this.state.testResult;
     }
 
     renderGridLayout() {
@@ -92,6 +147,12 @@ export function LayoutTestElementBuilder() {
     }
 
     render() {
+      const testResultStatusClass = this.state.testResult.success === true
+        ? 'success'
+        : this.state.testResult.success === false
+          ? 'failure'
+          : 'not-run';
+
       return `
         <style>
           :host {
@@ -200,6 +261,20 @@ export function LayoutTestElementBuilder() {
             <p><strong>Current Layout:</strong> ${this.state.activeTab === 'grid' ? 'CSS Grid' : 'Flexbox'}</p>
             <p>Click the tabs above to switch between different layout techniques.</p>
           </div>
+
+          <button id="run-layout-test" type="button" style="margin-top: 1rem; padding: 0.5rem 1rem; border: none; border-radius: 4px; background-color: #03dac6; color: white; cursor: pointer;">Run This Test</button>
+
+          <div class="test-result" style="margin-top: 1rem;">
+            <h4>Test Result:</h4>
+            <p class="status-message ${testResultStatusClass}" style="padding: 5px; border-radius: 3px; border: 1px solid transparent;">
+              ${this.state.testResult.message}
+            </p>
+          </div>
+          <style>
+            .status-message.success { color: green; background-color: #e6ffe6; border-color: green;}
+            .status-message.failure { color: red; background-color: #ffe6e6; border-color: red;}
+            .status-message.not-run { color: orange; background-color: #fff0e0; border-color: orange;}
+          </style>
         </div>
       `;
     }
