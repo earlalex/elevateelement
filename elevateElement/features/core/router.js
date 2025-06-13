@@ -1,10 +1,4 @@
 // elevateElement/features/core/router.js
-import { About } from '../../views/About.js';
-import { Config } from '../../views/Config.js';
-import { Contact } from '../../views/Contact.js';
-import { Home } from '../../views/Home.js';
-import { Tests } from '../../views/Tests.js';
-const allViews = [Home,About,Contact,Tests,Config]
 
 function getBasePath() {
   const mainScriptTag = document.querySelector('script[src*="elevateElement.js"][type="module"]');
@@ -611,7 +605,6 @@ class InternalRouter {
 
 // Export Singleton Router
 const Router = new InternalRouter();
-Router.setupRoutes(allViews);
 
 // Make Router globally accessible
 if (typeof window !== 'undefined') {
