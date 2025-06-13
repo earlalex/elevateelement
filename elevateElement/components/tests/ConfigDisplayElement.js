@@ -13,12 +13,38 @@ export function ConfigDisplayElementBuilder(ElevateElementClass) {
     connectedCallback() {
       super.connectedCallback();
       console.log('[ConfigDisplayElement] connected');
-      // Assuming ElevateElementClass base handles event delegation from events()
+      if (this.render && typeof this.render === 'function' && this.shadowRoot) {
+         this.shadowRoot.innerHTML = this.render(); // Initial render
+      }
+      this.attachEventHandlers();
     }
 
     disconnectedCallback() {
       console.log('[ConfigDisplayElement] disconnected');
+      this.removeEventListeners();
       super.disconnectedCallback && super.disconnectedCallback();
+    }
+
+    attachEventHandlers() {
+      if (!this.shadowRoot) return;
+      const runTestButton = this.shadowRoot.querySelector('.run-this-test-button');
+      if (runTestButton) {
+        if (this._boundHandleRunThisTest) {
+            runTestButton.removeEventListener('click', this._boundHandleRunThisTest);
+        }
+        this._boundHandleRunThisTest = this.handleRunThisTest.bind(this);
+        runTestButton.addEventListener('click', this._boundHandleRunThisTest);
+      } else {
+        console.warn('[ConfigDisplayElement] "Run This Test" button not found for event attachment.');
+      }
+    }
+
+    removeEventListeners() {
+      if (!this.shadowRoot) return;
+      const runTestButton = this.shadowRoot.querySelector('.run-this-test-button');
+      if (runTestButton && this._boundHandleRunThisTest) {
+        runTestButton.removeEventListener('click', this._boundHandleRunThisTest);
+      }
     }
 
     async handleRunThisTest() {
@@ -26,16 +52,12 @@ export function ConfigDisplayElementBuilder(ElevateElementClass) {
             await this.runTest();
         } catch (e) {
             this.setState({ testResult: { success: false, message: `Test execution error: ${e.message}` } });
+            if (this.render && typeof this.render === 'function' && this.shadowRoot) {
+                // No need to call this.render() again if setState did it.
+            }
+            this.attachEventHandlers(); // Re-attach listeners
             console.error('[ConfigDisplayElement] Error during runTest from button:', e);
         }
-    }
-
-    events() {
-      return {
-        click: {
-          '.run-this-test-button': () => this.handleRunThisTest()
-        }
-      };
     }
 
     safe(value) {
@@ -171,8 +193,10 @@ export function ConfigDisplayElementBuilder(ElevateElementClass) {
       }
 
       this.setState({ testResult: result });
-      // Assuming setState triggers re-render. If not:
-      // if (this.update) this.update(); else if (this.requestUpdate) this.requestUpdate();
+      if (this.render && typeof this.render === 'function' && this.shadowRoot) {
+        // No need to call this.render() again if setState did it.
+      }
+      this.attachEventHandlers(); // Re-attach listeners
       return result;
     }
   }

@@ -1,13 +1,31 @@
-// // elevateElement/views/FeatureTestsView.js
-// import { TestElementBuilder } from '../components/builders/TestElement.js'; 
-// import { ErrorTestElementBuilder } from '../components/tests/ErrorTestElement.js';
-// import { ChannelSyncTestElementBuilder } from '../components/tests/ChannelSyncTestElement.js';
-// import { PostTestElementBuilder } from '../components/tests/PostTestElement .js';
-// import { RetryErrorElementBuilder } from '../components/tests/RetryErrorElement.js';
-// import { EventBridgeElementBuilder } from '../components/tests/EventBridgeElement.js';
-// import { ManualEventElementBuilder } from '../components/tests/ManualEventElement.js';
-// import { LayoutTestElementBuilder } from '../components/tests/LayoutTestElement.js';
+// elevateElement/views/FeatureTestsView.js
+import { TestElementBuilder } from '../components/builders/TestElement.js';
+import { ErrorTestElementBuilder } from '../components/tests/ErrorTestElement.js';
+import { ChannelSyncTestElementBuilder } from '../components/tests/ChannelSyncTestElement.js';
+import { PostTestElementBuilder } from '../components/tests/PostTestElement.js';
+import { RetryErrorElementBuilder } from '../components/tests/RetryErrorElement.js';
+import { EventBridgeElementBuilder } from '../components/tests/EventBridgeElement.js';
+import { ManualEventElementBuilder } from '../components/tests/ManualEventElement.js';
+import { LayoutTestElementBuilder } from '../components/tests/LayoutTestElement.js';
+import { ConfigDisplayElementBuilder } from '../components/tests/ConfigDisplayElement.js';
+import { RouterTestElementBuilder } from '../components/tests/RouterTestElement.js';
 import { renderView } from '../utils/index.js';
+
+// Define a minimal base class for test elements
+class MinimalBaseClass { constructor(name) { this.name = name; } connectedCallback() {} disconnectedCallback() {} setState(newState) { this.state = {...this.state, ...newState}; if (this.render && this.shadowRoot) { this.shadowRoot.innerHTML = this.render(); } else if (this.template && this.shadowRoot) { this.shadowRoot.innerHTML = this.template(); } } }
+
+console.log('[Tests View] Defining custom test elements...');
+TestElementBuilder(MinimalBaseClass);
+ErrorTestElementBuilder(MinimalBaseClass);
+ChannelSyncTestElementBuilder(MinimalBaseClass);
+PostTestElementBuilder(MinimalBaseClass);
+RetryErrorElementBuilder(MinimalBaseClass);
+EventBridgeElementBuilder(MinimalBaseClass);
+ManualEventElementBuilder(MinimalBaseClass);
+LayoutTestElementBuilder(MinimalBaseClass);
+ConfigDisplayElementBuilder(MinimalBaseClass);
+RouterTestElementBuilder(MinimalBaseClass);
+console.log('[Tests View] Custom test elements defined.');
 
 // Track component initialization status
 const initializedComponents = {
@@ -18,7 +36,9 @@ const initializedComponents = {
   'retry-error-element': false,
   'event-bridge-element': false,
   'manual-event-element': false,
-  'layout-test-element': false
+  'layout-test-element': false,
+  'config-display-element': false,
+  'router-test-element': false
 };
 
 // Initialize test components
@@ -96,6 +116,11 @@ export const Tests = {
             <h2>Config Display Test Element (Configuration Data Verification)</h2>
             <config-display-element></config-display-element>
         </section>
+
+        <section class="test-section">
+            <h2>Router Test Element</h2>
+            <router-test-element></router-test-element>
+        </section>
         </section>
 
         <style>
@@ -157,6 +182,8 @@ export const Tests = {
         'event-bridge-element': false,
         'manual-event-element': false,
         'layout-test-element': false,
+  'config-display-element': false, // This was the missing part in the previous attempt's search block
+  'router-test-element': false
       };
       
       // Define custom elements for each test component
@@ -182,7 +209,20 @@ export const Tests = {
         }
         
         // Initialize test components if the view was rendered
-        const testComponents = Tests.initTestComponents();
+        const testComponents = Tests.initTestComponents(); // This already populates testComponents status for defined elements
+
+        // Display component registration status
+        const undefinedComponents = initializeTestComponents(); // This calls verifyComponents
+        const statusDiv = document.getElementById('test-components-status');
+        if (statusDiv) {
+          if (undefinedComponents.length === 0) {
+            statusDiv.textContent = 'All test components registered successfully.';
+            statusDiv.className = 'status-message status-success';
+          } else {
+            statusDiv.textContent = `Warning: The following test components failed to register: ${undefinedComponents.join(', ')}`;
+            statusDiv.className = 'status-message status-error';
+          }
+        }
         
         // Additional setup actions for the Tests view
         console.log('[Tests View] Tests content rendered');
@@ -200,59 +240,82 @@ export const Tests = {
                 console.log('[RunAllTests] Clicked - Starting all tests.');
                 // These are the tags for the components that have runTest and UI updates
                 const testElementTags = [
+                    'test-element',
                     'error-test-element',
-                    'post-test-element', // Assuming standard tag name
+                    'post-test-element',
                     'manual-event-element',
                     'event-bridge-element',
                     'channel-sync-test-element',
                     'retry-error-element',
-                    'config-display-element'
+                    'config-display-element',
+                    'layout-test-element',
+                    'router-test-element'
                 ];
 
                 let testsFoundAndRunnable = 0;
-                let testsSuccessfullyTriggered = 0;
-                // This count is just for triggering, individual components show pass/fail
+                const testPromises = [];
 
                 for (const tag of testElementTags) {
-                    const element = document.querySelector(tag); // Query within the rendered view
+                    const element = document.querySelector(tag);
                     if (element) {
                         try {
-                            // Wait for the custom element to be defined and upgraded
-                            console.log(`[RunAllTests] Waiting for ${tag} to be defined...`);
                             await customElements.whenDefined(tag);
                             console.log(`[RunAllTests] ${tag} is defined.`);
 
                             if (typeof element.runTest === 'function') {
                                 testsFoundAndRunnable++;
                                 console.log(`[RunAllTests] Attempting to run test for ${tag}`);
-                                await element.runTest(); // runTest updates its own UI
-                                testsSuccessfullyTriggered++;
-                                console.log(`[RunAllTests] Successfully triggered test for ${tag}`);
+                                testPromises.push(
+                                  element.runTest().catch(err => {
+                                    console.error(`[RunAllTests] Test ${tag} threw an unhandled error:`, err);
+                                    return { success: false, message: `Test ${tag} threw error: ${err.message || 'Unknown error'}` };
+                                  })
+                                );
                             } else {
                                 console.warn(`[RunAllTests] Test element ${tag} found and defined, but runTest method is STILL missing.`);
                             }
                         } catch (e) {
-                            console.error(`[RunAllTests] Error during test for ${tag} (post-definition or during runTest):`, e);
-                            // Individual component might display its error, or we can log it here.
+                            console.error(`[RunAllTests] Error during setup for ${tag}:`, e);
                         }
                     } else {
                         console.warn(`[RunAllTests] Test element ${tag} not found in the DOM.`);
                     }
                 }
 
-                let summaryMessage = `Triggered ${testsSuccessfullyTriggered} of ${testsFoundAndRunnable} found testable components. `;
-                summaryMessage += `(Total query tags: ${testElementTags.length}). Check individual components for detailed pass/fail results.`;
+                const testOutcomes = await Promise.allSettled(testPromises);
+                let passedCount = 0;
+                let failedCount = 0;
+
+                testOutcomes.forEach(outcome => {
+                  if (outcome.status === 'fulfilled' && outcome.value && outcome.value.success === true) {
+                    passedCount++;
+                  } else {
+                    failedCount++;
+                    if (outcome.status === 'rejected') {
+                      console.error('[RunAllTests] A test promise was rejected:', outcome.reason);
+                    } else if (outcome.value) {
+                      console.log('[RunAllTests] A test failed or had an error:', outcome.value.message);
+                    }
+                  }
+                });
+
+                let summaryMessage = `Found ${testsFoundAndRunnable} runnable tests. Executed ${testOutcomes.length}. Passed: ${passedCount}, Failed: ${failedCount}.`;
+                summaryMessage += ` Check individual components for detailed messages.`;
 
                 allTestsSummaryDiv.textContent = summaryMessage;
-                if (testsFoundAndRunnable > 0 && testsSuccessfullyTriggered === testsFoundAndRunnable) {
+
+                if (testsFoundAndRunnable === 0) {
+                    allTestsSummaryDiv.style.borderColor = '#ccc';
+                    allTestsSummaryDiv.style.backgroundColor = '#f0f0f0';
+                } else if (failedCount === 0 && passedCount === testsFoundAndRunnable) {
                     allTestsSummaryDiv.style.borderColor = 'green';
                     allTestsSummaryDiv.style.backgroundColor = '#e6ffe6';
-                } else if (testsFoundAndRunnable > 0 && testsSuccessfullyTriggered > 0) {
-                    allTestsSummaryDiv.style.borderColor = 'orange';
-                     allTestsSummaryDiv.style.backgroundColor = '#fff0e0';
-                } else {
+                } else if (failedCount > 0) {
                     allTestsSummaryDiv.style.borderColor = 'red';
                     allTestsSummaryDiv.style.backgroundColor = '#ffe6e6';
+                } else { // Some passed, none failed explicitly, but not all runnable tests passed (e.g. some missing runTest)
+                    allTestsSummaryDiv.style.borderColor = 'orange';
+                    allTestsSummaryDiv.style.backgroundColor = '#fff0e0';
                 }
                 console.log(`[RunAllTests] Summary: ${summaryMessage}`);
             });

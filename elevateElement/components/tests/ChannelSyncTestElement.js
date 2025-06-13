@@ -34,20 +34,17 @@ export function ChannelSyncTestElementBuilder() {
       
       // Subscribe to state changes
       this._unsubscribe = StateManager.subscribe('channelCount', (newValue) => {
-        this.globalCount = newValue; // This directly mutates a property
-        this.updateUI(); // this.updateUI will re-render and re-attach listeners
+        this.globalCount = newValue;
+        this.updateUI();
+        this.addEventListeners(); // Re-attach after render
       });
     }
 
     connectedCallback() {
       super.connectedCallback();
       console.log('[ChannelSyncTestElement] connected');
-      
-      // Initial UI render and event listener setup
-      // updateUI calls addEventListeners, so just one call is fine.
-      this.updateUI();
-      
-      // Open the BroadcastChannel
+      this.updateUI(); // Initial render
+      this.addEventListeners(); // Attach listeners
       this.openChannel();
     }
 
@@ -70,8 +67,7 @@ export function ChannelSyncTestElementBuilder() {
     
     // Add event listeners manually
     addEventListeners() {
-      // First render the UI to create the elements
-      this.updateUI();
+      if (!this.shadowRoot) return; // Guard against no shadowRoot
       
       // Then attach event listeners using proper binding
       const incrementButton = this.shadowRoot.querySelector('.increment-button');
@@ -116,10 +112,11 @@ export function ChannelSyncTestElementBuilder() {
 
     async handleRunThisTest() {
       try {
-        await this.runTest(); // runTest will update state.testResult and call updateUI
+        await this.runTest();
       } catch (e) {
         this.state.testResult = { success: false, message: `Test execution error: ${e.message}` };
-        this.updateUI(); // Ensure UI updates on direct error
+        this.updateUI();
+        this.addEventListeners(); // Re-attach
         console.error('[ChannelSyncTestElement] Error during runTest from button:', e);
       }
     }
@@ -157,9 +154,8 @@ export function ChannelSyncTestElementBuilder() {
     
     // Update UI method
     updateUI() {
+      if (!this.shadowRoot) return; // Guard against no shadowRoot
       this.shadowRoot.innerHTML = this.render();
-      // Re-attach event listeners after shadow DOM update
-      this.addEventListeners();
     }
 
     render() {
@@ -292,8 +288,9 @@ export function ChannelSyncTestElementBuilder() {
         success: allTestsPassed,
         message: messages.join(' | ')
       };
-      this.state.testResult = result; // Update state
-      this.updateUI(); // Manually trigger UI update
+      this.state.testResult = result;
+      this.updateUI();
+      this.addEventListeners(); // Re-attach after render
 
       return result;
     }

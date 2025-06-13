@@ -11,18 +11,53 @@ export function RetryErrorElementBuilder(ElevateElementClass) {
           loading: false,
           testResult: { success: null, message: 'Test not run yet.' }
         };
+
+        this._boundFetchData = (e) => this.fetchData(e);
+        this._boundHandleRunThisTest = this.handleRunThisTest.bind(this);
       }
   
-      connectedCallback() {
+      async connectedCallback() { // Make async to await fetchData
         super.connectedCallback();
         console.log('[RetryErrorElement] connected');
-        this.fetchData(); // Try fetching when mounted
-        // Assuming ElevateElementClass base handles event delegation from events()
+        await this.fetchData(); // Wait for initial fetch to complete and state to set
+        if (this.shadowRoot && typeof this.render === 'function') {
+          this.shadowRoot.innerHTML = this.render();
+        }
+        this.attachEventHandlers();
       }
   
       disconnectedCallback() {
         console.log('[RetryErrorElement] disconnected');
+        this.removeEventListeners();
         super.disconnectedCallback && super.disconnectedCallback();
+      }
+
+      attachEventHandlers() {
+        if (!this.shadowRoot) return;
+        const retryButton = this.shadowRoot.querySelector('.retry-button');
+        const runTestButton = this.shadowRoot.querySelector('.run-this-test-button');
+
+        if (retryButton) {
+          retryButton.removeEventListener('click', this._boundFetchData);
+          retryButton.addEventListener('click', this._boundFetchData);
+        }
+        if (runTestButton) {
+          runTestButton.removeEventListener('click', this._boundHandleRunThisTest);
+          runTestButton.addEventListener('click', this._boundHandleRunThisTest);
+        }
+      }
+
+      removeEventListeners() {
+        if (!this.shadowRoot) return;
+        const retryButton = this.shadowRoot.querySelector('.retry-button');
+        const runTestButton = this.shadowRoot.querySelector('.run-this-test-button');
+
+        if (retryButton) {
+          retryButton.removeEventListener('click', this._boundFetchData);
+        }
+        if (runTestButton) {
+          runTestButton.removeEventListener('click', this._boundHandleRunThisTest);
+        }
       }
 
       async handleRunThisTest() {
@@ -30,37 +65,32 @@ export function RetryErrorElementBuilder(ElevateElementClass) {
           await this.runTest();
         } catch (e) {
           this.setState({ testResult: { success: false, message: `Test execution error: ${e.message}` }});
+          this.attachEventHandlers(); // Re-attach listeners
           console.error('[RetryErrorElement] Error during runTest from button:', e);
         }
-      }
-  
-      events() {
-        return {
-          click: {
-            '.retry-button': (e) => this.fetchData(e),
-            '.run-this-test-button': () => this.handleRunThisTest(),
-            _options: { passive: true }
-          }
-        };
       }
   
       async fetchData(e) {
         console.log('[RetryErrorElement] Fetching data...');
         this.setState({ loading: true, error: '', data: null });
+        // No direct DOM manipulation here that would require immediate re-attach before try/catch
+        // attachEventHandlers will be called after setState in success/error paths.
   
         try {
           const response = await fetch('https://jsonplaceholder.typicode.com/invalid-url');
           if (!response.ok) {
-            const errorText = await response.text();
+            // const errorText = await response.text(); // Not using errorText directly
             throw new Error(`Request failed: ${response.status}`);
           }
   
           const data = await response.json();
           console.log('[RetryErrorElement] Data fetched:', data);
           this.setState({ data, loading: false });
+          this.attachEventHandlers();
         } catch (error) {
           console.error('[RetryErrorElement] Fetch error:', error);
           this.setState({ error: 'Failed to load data. Please try again.', loading: false });
+          this.attachEventHandlers();
         }
       }
 
@@ -172,6 +202,7 @@ export function RetryErrorElementBuilder(ElevateElementClass) {
         }
 
         this.setState({ testResult: testResultObj });
+        this.attachEventHandlers();
         return testResultObj;
       }
     } // End of RetryErrorElement class definition
