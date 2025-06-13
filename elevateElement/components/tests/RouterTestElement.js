@@ -181,7 +181,7 @@ export function RouterTestElementBuilder(ElevateElementClass) {
       const testResultStatusClass = this.state.testResult.success === true ? 'success'
                                   : this.state.testResult.success === false ? 'failure'
                                   : 'not-run';
-      return \`
+      return `
         <style>
           :host { display: block; padding: 10px; border: 1px solid #eee; margin-bottom:10px; font-family: sans-serif; }
           button { margin: 5px; padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; background-color: #007bff; color: white; }
@@ -215,7 +215,7 @@ export function RouterTestElementBuilder(ElevateElementClass) {
             </p>
           </div>
         </div>
-      \`;
+      `;
     }
   }
 
